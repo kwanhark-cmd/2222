@@ -5,10 +5,10 @@ enum AiSource { claude, chatgpt, gemini }
 
 extension AiSourceInfo on AiSource {
   String get label => switch (this) {
-        AiSource.claude => '클로드',
-        AiSource.chatgpt => '챗GPT',
-        AiSource.gemini => '제미나이',
-      };
+    AiSource.claude => '클로드',
+    AiSource.chatgpt => '챗GPT',
+    AiSource.gemini => '제미나이',
+  };
 
   String get key => name;
 
@@ -28,30 +28,21 @@ class Message {
   final DateTime? time;
   final List<String> attachments;
 
-  const Message({
-    required this.role,
-    required this.text,
-    this.time,
-    this.attachments = const [],
-  });
+  const Message({required this.role, required this.text, this.time, this.attachments = const []});
 
   Map<String, dynamic> toJson() => {
-        'r': role.name,
-        't': text,
-        if (time != null) 'd': time!.millisecondsSinceEpoch,
-        if (attachments.isNotEmpty) 'a': attachments,
-      };
+    'r': role.name,
+    't': text,
+    if (time != null) 'd': time!.millisecondsSinceEpoch,
+    if (attachments.isNotEmpty) 'a': attachments,
+  };
 
   factory Message.fromJson(Map<String, dynamic> j) => Message(
-        role: Role.values.firstWhere((r) => r.name == j['r'],
-            orElse: () => Role.user),
-        text: (j['t'] ?? '') as String,
-        time: j['d'] is int
-            ? DateTime.fromMillisecondsSinceEpoch(j['d'] as int)
-            : null,
-        attachments:
-            (j['a'] as List?)?.map((e) => e.toString()).toList() ?? const [],
-      );
+    role: Role.values.firstWhere((r) => r.name == j['r'], orElse: () => Role.user),
+    text: (j['t'] ?? '') as String,
+    time: j['d'] is int ? DateTime.fromMillisecondsSinceEpoch(j['d'] as int) : null,
+    attachments: (j['a'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+  );
 }
 
 /// 파서가 만든 대화(아직 저장 전).
@@ -114,8 +105,7 @@ class Topic {
   final int? parentId;
   final int count;
 
-  const Topic(
-      {required this.id, required this.name, this.parentId, this.count = 0});
+  const Topic({required this.id, required this.name, this.parentId, this.count = 0});
 }
 
 class Note {
@@ -125,13 +115,7 @@ class Note {
   final String text;
   final bool byVoice;
 
-  const Note({
-    required this.id,
-    required this.conversationId,
-    required this.createdAt,
-    required this.text,
-    required this.byVoice,
-  });
+  const Note({required this.id, required this.conversationId, required this.createdAt, required this.text, required this.byVoice});
 }
 
 class UserProfile {
@@ -141,27 +125,21 @@ class UserProfile {
   final String? pinHash;
   final DateTime createdAt;
 
-  const UserProfile({
-    required this.id,
-    required this.name,
-    required this.emoji,
-    this.pinHash,
-    required this.createdAt,
-  });
+  const UserProfile({required this.id, required this.name, required this.emoji, this.pinHash, required this.createdAt});
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'emoji': emoji,
-        if (pinHash != null) 'pin': pinHash,
-        'created': createdAt.toIso8601String(),
-      };
+    'id': id,
+    'name': name,
+    'emoji': emoji,
+    if (pinHash != null) 'pin': pinHash,
+    'created': createdAt.toIso8601String(),
+  };
 
   factory UserProfile.fromJson(Map<String, dynamic> j) => UserProfile(
-        id: j['id'] as String,
-        name: j['name'] as String,
-        emoji: (j['emoji'] ?? '🙂') as String,
-        pinHash: j['pin'] as String?,
-        createdAt: DateTime.tryParse(j['created'] ?? '') ?? DateTime.now(),
-      );
+    id: j['id'] as String,
+    name: j['name'] as String,
+    emoji: (j['emoji'] ?? '🙂') as String,
+    pinHash: j['pin'] as String?,
+    createdAt: DateTime.tryParse(j['created'] ?? '') ?? DateTime.now(),
+  );
 }

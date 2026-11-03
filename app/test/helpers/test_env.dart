@@ -8,8 +8,7 @@ import 'package:ai_chat_organizer/parsers/import_reader.dart';
 
 Uint8List sampleBytes(String name) => File('assets/samples/$name').readAsBytesSync();
 
-ConversationStore memoryStore() =>
-    ConversationStore(AppDatabase.openInMemory(), ContentCipher(ContentCipher.newKeyBytes()));
+ConversationStore memoryStore() => ConversationStore(AppDatabase.openInMemory(), ContentCipher(ContentCipher.newKeyBytes()));
 
 Future<ConversationStore> storeWithSamples() async {
   final s = memoryStore();

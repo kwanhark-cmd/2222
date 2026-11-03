@@ -11,12 +11,7 @@ class SearchHit {
   final int messageIndex;
   final List<String> highlight;
 
-  const SearchHit({
-    required this.conversation,
-    required this.snippet,
-    required this.messageIndex,
-    required this.highlight,
-  });
+  const SearchHit({required this.conversation, required this.snippet, required this.messageIndex, required this.highlight});
 }
 
 class SearchPage {
@@ -72,8 +67,9 @@ class SearchService {
     if (match == null) {
       final w = where.isEmpty ? '' : 'WHERE ${where.join(' AND ')}';
       final rows = store.db.select(
-          'SELECT ${ConversationStore.summaryColumns} FROM conversations c $w ORDER BY c.created_at DESC LIMIT ? OFFSET ?',
-          [...args, limit + 1, cursor]);
+        'SELECT ${ConversationStore.summaryColumns} FROM conversations c $w ORDER BY c.created_at DESC LIMIT ? OFFSET ?',
+        [...args, limit + 1, cursor],
+      );
       final list = rows.map(ConversationStore.rowToSummary).toList();
       final hits = <SearchHit>[];
       for (final c in list.take(limit)) {
@@ -83,7 +79,8 @@ class SearchService {
     }
 
     final w = where.isEmpty ? '' : 'AND ${where.join(' AND ')}';
-    final sql = 'SELECT ${ConversationStore.summaryColumns}, bm25(conv_fts, 6.0, 1.0, 0.5) AS rank '
+    final sql =
+        'SELECT ${ConversationStore.summaryColumns}, bm25(conv_fts, 6.0, 1.0, 0.5) AS rank '
         'FROM conv_fts JOIN conversations c ON c.id = conv_fts.rowid WHERE conv_fts MATCH ? $w '
         'ORDER BY rank, c.created_at DESC LIMIT ? OFFSET ?';
     final hits = <SearchHit>[];
@@ -109,12 +106,14 @@ class SearchService {
           final inTitle = c.title.toLowerCase().contains(phrase);
           final idx = msgs.indexWhere((m) => m.text.toLowerCase().contains(phrase));
           if (!inTitle && idx < 0) continue;
-          hits.add(SearchHit(
-            conversation: c,
-            snippet: idx >= 0 ? makeSnippet(msgs[idx].text, [phrase]) : c.title,
-            messageIndex: idx < 0 ? 0 : idx,
-            highlight: [phrase],
-          ));
+          hits.add(
+            SearchHit(
+              conversation: c,
+              snippet: idx >= 0 ? makeSnippet(msgs[idx].text, [phrase]) : c.title,
+              messageIndex: idx < 0 ? 0 : idx,
+              highlight: [phrase],
+            ),
+          );
         } else {
           final (idx, snip) = _bestSnippet(msgs, words, c.title);
           hits.add(SearchHit(conversation: c, snippet: snip, messageIndex: idx, highlight: words));
@@ -174,8 +173,9 @@ class SearchService {
       final expr = words.map(KoreanTokenizer.termQuery).where((e) => e.isNotEmpty).join(' OR ');
       if (expr.isNotEmpty) {
         final rows = store.db.select(
-            'SELECT rowid AS id, bm25(conv_fts, 6.0, 1.0, 0.5) AS rank FROM conv_fts WHERE conv_fts MATCH ? ORDER BY rank LIMIT 40',
-            [expr]);
+          'SELECT rowid AS id, bm25(conv_fts, 6.0, 1.0, 0.5) AS rank FROM conv_fts WHERE conv_fts MATCH ? ORDER BY rank LIMIT 40',
+          [expr],
+        );
         for (final r in rows) {
           final id = r['id'] as int;
           if (id == convId) continue;
@@ -185,8 +185,9 @@ class SearchService {
     }
     if (topicIds.isNotEmpty) {
       final rows = store.db.select(
-          "SELECT conv_id, COUNT(*) AS n FROM conversation_topics WHERE origin!='removed' AND topic_id IN (${topicIds.map((_) => '?').join(',')}) AND conv_id!=? GROUP BY conv_id",
-          [...topicIds, convId]);
+        "SELECT conv_id, COUNT(*) AS n FROM conversation_topics WHERE origin!='removed' AND topic_id IN (${topicIds.map((_) => '?').join(',')}) AND conv_id!=? GROUP BY conv_id",
+        [...topicIds, convId],
+      );
       for (final r in rows) {
         final id = r['conv_id'] as int;
         scores[id] = (scores[id] ?? 0) + 3.0 * (r['n'] as int);

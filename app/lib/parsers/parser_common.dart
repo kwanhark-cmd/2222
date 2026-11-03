@@ -7,12 +7,7 @@ class ParseResult {
   final int skipped;
   final List<String> notices;
 
-  const ParseResult({
-    required this.source,
-    required this.conversations,
-    this.skipped = 0,
-    this.notices = const [],
-  });
+  const ParseResult({required this.source, required this.conversations, this.skipped = 0, this.notices = const []});
 }
 
 /// 파일을 전혀 읽을 수 없을 때. [hint]에는 대화 내용이 아닌 구조 정보만 담습니다.
@@ -40,8 +35,10 @@ DateTime? parseAnyTime(dynamic v) {
 String makeTitle(String? raw, List<Message> msgs) {
   final t = raw?.trim() ?? '';
   if (t.isNotEmpty) return t;
-  final first = msgs.firstWhere((m) => m.role == Role.user && m.text.trim().isNotEmpty,
-      orElse: () => const Message(role: Role.user, text: ''));
+  final first = msgs.firstWhere(
+    (m) => m.role == Role.user && m.text.trim().isNotEmpty,
+    orElse: () => const Message(role: Role.user, text: ''),
+  );
   final s = first.text.trim().replaceAll(RegExp(r'\s+'), ' ');
   if (s.isEmpty) return '제목 없는 대화';
   return s.length > 40 ? '${s.substring(0, 40)}…' : s;

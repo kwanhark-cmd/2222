@@ -4,14 +4,9 @@ class KoreanTokenizer {
   static final _wordSplit = RegExp(r'[^0-9A-Za-zÀ-ɏ가-힣ㄱ-ㆎ]+');
   static final _hangulRun = RegExp(r'[가-힣ㄱ-ㆎ]+|[^가-힣ㄱ-ㆎ]+');
 
-  static bool isHangul(int rune) =>
-      (rune >= 0xAC00 && rune <= 0xD7A3) || (rune >= 0x3131 && rune <= 0x318E);
+  static bool isHangul(int rune) => (rune >= 0xAC00 && rune <= 0xD7A3) || (rune >= 0x3131 && rune <= 0x318E);
 
-  static List<String> words(String text) => text
-      .toLowerCase()
-      .split(_wordSplit)
-      .where((w) => w.isNotEmpty)
-      .toList();
+  static List<String> words(String text) => text.toLowerCase().split(_wordSplit).where((w) => w.isNotEmpty).toList();
 
   /// 2글자 조각 색인(문장 순서 유지 → 구절 검색 가능).
   static String bigramIndex(String text) {

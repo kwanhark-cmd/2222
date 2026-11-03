@@ -31,17 +31,25 @@ void main() {
     final s = await storeWithSamples();
     final total = s.count();
     expect(total, 10);
-    final again = await s.importResults(
-        ImportReader.read('claude_sample.json', sampleBytes('claude_sample.json')), fileName: 'again');
+    final again = await s.importResults(ImportReader.read('claude_sample.json', sampleBytes('claude_sample.json')), fileName: 'again');
     expect(again.added, 0);
     expect(again.unchanged, 4);
     expect(s.count(), total);
     final grown = ParsedConversation(
-      source: AiSource.claude, externalId: 'c1a2b3c4-0003-4000-8000-000000000003', title: '제주도 3박 4일 여행 일정',
-      createdAt: DateTime(2026, 9, 5), updatedAt: DateTime(2026, 9, 6),
-      messages: const [Message(role: Role.user, text: '하나'), Message(role: Role.assistant, text: '둘'), Message(role: Role.user, text: '셋 추가 질문 한라봉')],
+      source: AiSource.claude,
+      externalId: 'c1a2b3c4-0003-4000-8000-000000000003',
+      title: '제주도 3박 4일 여행 일정',
+      createdAt: DateTime(2026, 9, 5),
+      updatedAt: DateTime(2026, 9, 6),
+      messages: const [
+        Message(role: Role.user, text: '하나'),
+        Message(role: Role.assistant, text: '둘'),
+        Message(role: Role.user, text: '셋 추가 질문 한라봉'),
+      ],
     );
-    final r = await s.importResults([ParseResult(source: AiSource.claude, conversations: [grown])], fileName: 'grow');
+    final r = await s.importResults([
+      ParseResult(source: AiSource.claude, conversations: [grown]),
+    ], fileName: 'grow');
     expect(r.updated, 1);
     final hits = await SearchService(s).search(QueryParser.parse('한라봉'));
     expect(hits.hits.length, 1);
@@ -49,12 +57,26 @@ void main() {
 
   test('가져오기 취소', () async {
     final s = memoryStore();
-    final many = List.generate(200, (i) => ParsedConversation(
-        source: AiSource.claude, externalId: 'id$i', title: '대화 $i', createdAt: DateTime(2026), updatedAt: DateTime(2026),
-        messages: [Message(role: Role.user, text: '내용 $i')]));
+    final many = List.generate(
+      200,
+      (i) => ParsedConversation(
+        source: AiSource.claude,
+        externalId: 'id$i',
+        title: '대화 $i',
+        createdAt: DateTime(2026),
+        updatedAt: DateTime(2026),
+        messages: [Message(role: Role.user, text: '내용 $i')],
+      ),
+    );
     final token = CancelToken();
-    final r = await s.importResults([ParseResult(source: AiSource.claude, conversations: many)], fileName: 'x',
-        cancel: token, onProgress: (d, t) { if (d >= 50) token.cancel(); });
+    final r = await s.importResults(
+      [ParseResult(source: AiSource.claude, conversations: many)],
+      fileName: 'x',
+      cancel: token,
+      onProgress: (d, t) {
+        if (d >= 50) token.cancel();
+      },
+    );
     expect(r.cancelled, isTrue);
     expect(s.count(), 50);
   });
@@ -108,10 +130,21 @@ void main() {
     });
     test('영어 낱말 앞부분 검색', () async {
       final s = memoryStore();
-      await s.importResults([ParseResult(source: AiSource.claude, conversations: [
-        ParsedConversation(source: AiSource.claude, externalId: 'e', title: 'Flutter 질문', createdAt: DateTime(2026), updatedAt: DateTime(2026),
-            messages: const [Message(role: Role.user, text: 'flutter_secure_storage 설치 오류')]),
-      ])], fileName: 'e');
+      await s.importResults([
+        ParseResult(
+          source: AiSource.claude,
+          conversations: [
+            ParsedConversation(
+              source: AiSource.claude,
+              externalId: 'e',
+              title: 'Flutter 질문',
+              createdAt: DateTime(2026),
+              updatedAt: DateTime(2026),
+              messages: const [Message(role: Role.user, text: 'flutter_secure_storage 설치 오류')],
+            ),
+          ],
+        ),
+      ], fileName: 'e');
       final p = await SearchService(s).search(QueryParser.parse('flut'));
       expect(p.hits.length, 1);
       final p2 = await SearchService(s).search(QueryParser.parse('설치 오류'));

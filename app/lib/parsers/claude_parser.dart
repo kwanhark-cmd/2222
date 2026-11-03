@@ -7,8 +7,7 @@ class ClaudeParser {
   static bool looksLike(dynamic decoded) {
     if (decoded is List && decoded.isNotEmpty && decoded.first is Map) {
       final m = decoded.first as Map;
-      return m.containsKey('chat_messages') ||
-          (m.containsKey('uuid') && m.containsKey('name') && !m.containsKey('mapping'));
+      return m.containsKey('chat_messages') || (m.containsKey('uuid') && m.containsKey('name') && !m.containsKey('mapping'));
     }
     return false;
   }
@@ -39,19 +38,19 @@ class ClaudeParser {
             if (m != null) msgs.add(m);
           }
         }
-        final created = parseAnyTime(item['created_at']) ??
-            msgs.firstOrNull?.time ??
-            DateTime.now();
+        final created = parseAnyTime(item['created_at']) ?? msgs.firstOrNull?.time ?? DateTime.now();
         final updated = parseAnyTime(item['updated_at']) ?? created;
-        out.add(ParsedConversation(
-          source: AiSource.claude,
-          externalId: id,
-          title: makeTitle(item['name']?.toString(), msgs),
-          createdAt: created,
-          updatedAt: updated,
-          messages: msgs,
-          link: 'https://claude.ai/chat/$id',
-        ));
+        out.add(
+          ParsedConversation(
+            source: AiSource.claude,
+            externalId: id,
+            title: makeTitle(item['name']?.toString(), msgs),
+            createdAt: created,
+            updatedAt: updated,
+            messages: msgs,
+            link: 'https://claude.ai/chat/$id',
+          ),
+        );
       } catch (_) {
         skipped++;
       }
@@ -64,8 +63,8 @@ class ClaudeParser {
     final role = sender == 'human'
         ? Role.user
         : sender == 'assistant'
-            ? Role.assistant
-            : Role.system;
+        ? Role.assistant
+        : Role.system;
     final buf = StringBuffer();
     final content = rm['content'];
     if (content is List && content.isNotEmpty) {
@@ -104,11 +103,6 @@ class ClaudeParser {
     }
     final text = buf.toString().trim();
     if (text.isEmpty && attachments.isEmpty) return null;
-    return Message(
-      role: role,
-      text: text,
-      time: parseAnyTime(rm['created_at']),
-      attachments: attachments,
-    );
+    return Message(role: role, text: text, time: parseAnyTime(rm['created_at']), attachments: attachments);
   }
 }

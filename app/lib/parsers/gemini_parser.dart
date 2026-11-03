@@ -8,17 +8,9 @@ import 'parser_common.dart';
 /// 기록은 질문 하나씩 따로 있고 대화 ID가 없으므로, 30분 안에 이어진 질문을 한 대화로 묶습니다.
 class GeminiParser {
   static const groupGap = Duration(minutes: 30);
-  static const notice =
-      '제미나이 기록은 구글 테이크아웃에 일부만 담길 수 있어요(첨부 그림, 지운 기록, 일부 답변이 빠질 수 있음).';
+  static const notice = '제미나이 기록은 구글 테이크아웃에 일부만 담길 수 있어요(첨부 그림, 지운 기록, 일부 답변이 빠질 수 있음).';
 
-  static final _prefixes = [
-    'Prompted ',
-    'Prompted: ',
-    '다음 내용으로 질문함: ',
-    '질문함: ',
-    '입력함: ',
-    '프롬프트: ',
-  ];
+  static final _prefixes = ['Prompted ', 'Prompted: ', '다음 내용으로 질문함: ', '질문함: ', '입력함: ', '프롬프트: '];
 
   static bool looksLikeJson(dynamic decoded) {
     if (decoded is List && decoded.isNotEmpty && decoded.first is Map) {
@@ -33,8 +25,7 @@ class GeminiParser {
     return false;
   }
 
-  static bool looksLikeHtml(String text) =>
-      text.contains('outer-cell') && (text.contains('Gemini') || text.contains('제미나이'));
+  static bool looksLikeHtml(String text) => text.contains('outer-cell') && (text.contains('Gemini') || text.contains('제미나이'));
 
   static ParseResult parseJson(dynamic decoded) {
     if (decoded is! List) {
@@ -87,17 +78,14 @@ class GeminiParser {
     var skipped = 0;
     for (final cell in cells) {
       try {
-        final header = cell.querySelector('.header-cell')?.text ??
-            cell.querySelector('p.mdl-typography--title')?.text ??
-            '';
+        final header = cell.querySelector('.header-cell')?.text ?? cell.querySelector('p.mdl-typography--title')?.text ?? '';
         if (header.isNotEmpty && !header.contains('Gemini') && !header.contains('제미나이')) {
           skipped++;
           continue;
         }
         final body = cell
             .querySelectorAll('div.content-cell')
-            .firstWhere((e) => !e.classes.contains('mdl-typography--caption'),
-                orElse: () => dom.Element.tag('div'));
+            .firstWhere((e) => !e.classes.contains('mdl-typography--caption'), orElse: () => dom.Element.tag('div'));
         final textNodes = <String>[];
         final responseParts = <String>[];
         for (final node in body.nodes) {
@@ -128,7 +116,7 @@ class GeminiParser {
         }
         final promptParts = <String>[
           for (var i = 0; i < textNodes.length; i++)
-            if (i != dateIndex) textNodes[i]
+            if (i != dateIndex) textNodes[i],
         ];
         final prompt = _stripPrefix(promptParts.isEmpty ? '' : promptParts.first);
         final extra = promptParts.skip(1).join('\n');
@@ -169,15 +157,17 @@ class GeminiParser {
           msgs.add(Message(role: Role.assistant, text: t.response, time: t.time));
         }
       }
-      out.add(ParsedConversation(
-        source: AiSource.gemini,
-        externalId: 'gemini-${current.first.time.toUtc().millisecondsSinceEpoch}',
-        title: makeTitle(null, msgs),
-        createdAt: current.first.time,
-        updatedAt: current.last.time,
-        messages: msgs,
-        link: null,
-      ));
+      out.add(
+        ParsedConversation(
+          source: AiSource.gemini,
+          externalId: 'gemini-${current.first.time.toUtc().millisecondsSinceEpoch}',
+          title: makeTitle(null, msgs),
+          createdAt: current.first.time,
+          updatedAt: current.last.time,
+          messages: msgs,
+          link: null,
+        ),
+      );
       current = [];
     }
 
@@ -188,44 +178,57 @@ class GeminiParser {
       current.add(t);
     }
     flush();
-    return ParseResult(
-      source: AiSource.gemini,
-      conversations: out,
-      skipped: skipped,
-      notices: const [notice],
-    );
+    return ParseResult(source: AiSource.gemini, conversations: out, skipped: skipped, notices: const [notice]);
   }
 
   static String htmlToText(String html) {
     final frag = html_parser.parseFragment(
-        html.replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
-            .replaceAll(RegExp(r'</(p|div|li|h[1-6])>', caseSensitive: false), '</\$1>\n'));
+      html
+          .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
+          .replaceAll(RegExp(r'</(p|div|li|h[1-6])>', caseSensitive: false), '</\$1>\n'),
+    );
     return frag.text?.replaceAll(RegExp(r'\n{3,}'), '\n\n').trim() ?? '';
   }
 
   static const _months = {
-    'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
-    'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12,
+    'jan': 1,
+    'feb': 2,
+    'mar': 3,
+    'apr': 4,
+    'may': 5,
+    'jun': 6,
+    'jul': 7,
+    'aug': 8,
+    'sep': 9,
+    'oct': 10,
+    'nov': 11,
+    'dec': 12,
   };
 
   /// 테이크아웃 HTML의 날짜 글자를 읽습니다(영어·한국어).
   static DateTime? parseTakeoutDate(String s) {
     final t = s.replaceAll(' ', ' ').replaceAll(' ', ' ').trim();
     // 한국어: 2025. 10. 3. 오후 4:12:33 KST
-    final ko = RegExp(r'(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.?\s*(오전|오후)?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?')
-        .firstMatch(t);
+    final ko = RegExp(r'(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.?\s*(오전|오후)?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?').firstMatch(t);
     if (ko != null) {
       var h = int.parse(ko.group(5)!);
       final ap = ko.group(4);
       if (ap == '오후' && h < 12) h += 12;
       if (ap == '오전' && h == 12) h = 0;
-      return DateTime(int.parse(ko.group(1)!), int.parse(ko.group(2)!),
-          int.parse(ko.group(3)!), h, int.parse(ko.group(6)!), int.parse(ko.group(7) ?? '0'));
+      return DateTime(
+        int.parse(ko.group(1)!),
+        int.parse(ko.group(2)!),
+        int.parse(ko.group(3)!),
+        h,
+        int.parse(ko.group(6)!),
+        int.parse(ko.group(7) ?? '0'),
+      );
     }
     // 영어: Oct 3, 2025, 4:12:33 PM KST
-    final en = RegExp(r'([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2}),\s*(\d{4}),?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?',
-            caseSensitive: false)
-        .firstMatch(t);
+    final en = RegExp(
+      r'([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2}),\s*(\d{4}),?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?',
+      caseSensitive: false,
+    ).firstMatch(t);
     if (en != null) {
       final mon = _months[en.group(1)!.toLowerCase()];
       if (mon == null) return null;
@@ -233,8 +236,7 @@ class GeminiParser {
       final ap = en.group(7)?.toUpperCase();
       if (ap == 'PM' && h < 12) h += 12;
       if (ap == 'AM' && h == 12) h = 0;
-      return DateTime(int.parse(en.group(3)!), mon, int.parse(en.group(2)!), h,
-          int.parse(en.group(5)!), int.parse(en.group(6) ?? '0'));
+      return DateTime(int.parse(en.group(3)!), mon, int.parse(en.group(2)!), h, int.parse(en.group(5)!), int.parse(en.group(6) ?? '0'));
     }
     // 2025-10-03 16:12:33 같은 형식
     final iso = DateTime.tryParse(t);

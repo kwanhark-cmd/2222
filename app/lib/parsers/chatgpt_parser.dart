@@ -30,19 +30,19 @@ class ChatGptParser {
         }
         final mapping = item['mapping'] as Map;
         final msgs = _thread(mapping, item['current_node']?.toString());
-        final created = parseAnyTime(item['create_time']) ??
-            msgs.firstOrNull?.time ??
-            DateTime.now();
+        final created = parseAnyTime(item['create_time']) ?? msgs.firstOrNull?.time ?? DateTime.now();
         final updated = parseAnyTime(item['update_time']) ?? created;
-        out.add(ParsedConversation(
-          source: AiSource.chatgpt,
-          externalId: id,
-          title: makeTitle(item['title']?.toString(), msgs),
-          createdAt: created,
-          updatedAt: updated,
-          messages: msgs,
-          link: 'https://chatgpt.com/c/$id',
-        ));
+        out.add(
+          ParsedConversation(
+            source: AiSource.chatgpt,
+            externalId: id,
+            title: makeTitle(item['title']?.toString(), msgs),
+            createdAt: created,
+            updatedAt: updated,
+            messages: msgs,
+            link: 'https://chatgpt.com/c/$id',
+          ),
+        );
       } catch (_) {
         skipped++;
       }
@@ -136,11 +136,6 @@ class ChatGptParser {
     }
     final text = buf.toString().trim();
     if (text.isEmpty && attachments.isEmpty) return null;
-    return Message(
-      role: role,
-      text: text,
-      time: parseAnyTime(m['create_time']),
-      attachments: attachments,
-    );
+    return Message(role: role, text: text, time: parseAnyTime(m['create_time']), attachments: attachments);
   }
 }

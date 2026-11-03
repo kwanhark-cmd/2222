@@ -53,10 +53,14 @@ class ConversationStore {
     }
     final now = DateTime.now().millisecondsSinceEpoch;
     final find = db.prepare('SELECT id, msg_count, updated_at FROM conversations WHERE source=? AND ext_id=?');
-    final insert = db.prepare('''INSERT INTO conversations(source, ext_id, title, created_at, updated_at, msg_count, link, has_attachments, imported_at, body)
-        VALUES(?,?,?,?,?,?,?,?,?,?)''');
-    final update = db.prepare('''UPDATE conversations SET title=?, updated_at=?, msg_count=?, link=?, has_attachments=?, imported_at=?, body=?,
-        summary=CASE WHEN summary_by_ai=1 THEN summary ELSE NULL END WHERE id=?''');
+    final insert = db.prepare(
+      '''INSERT INTO conversations(source, ext_id, title, created_at, updated_at, msg_count, link, has_attachments, imported_at, body)
+        VALUES(?,?,?,?,?,?,?,?,?,?)''',
+    );
+    final update = db.prepare(
+      '''UPDATE conversations SET title=?, updated_at=?, msg_count=?, link=?, has_attachments=?, imported_at=?, body=?,
+        summary=CASE WHEN summary_by_ai=1 THEN summary ELSE NULL END WHERE id=?''',
+    );
     try {
       const batch = 50;
       for (var i = 0; i < all.length; i += batch) {
@@ -77,9 +81,16 @@ class ConversationStore {
             final existing = find.select([c.source.key, c.externalId]);
             if (existing.isEmpty) {
               insert.execute([
-                c.source.key, c.externalId, c.title,
-                c.createdAt.millisecondsSinceEpoch, c.updatedAt.millisecondsSinceEpoch,
-                c.messages.length, c.link, c.hasAttachments ? 1 : 0, now, enc,
+                c.source.key,
+                c.externalId,
+                c.title,
+                c.createdAt.millisecondsSinceEpoch,
+                c.updatedAt.millisecondsSinceEpoch,
+                c.messages.length,
+                c.link,
+                c.hasAttachments ? 1 : 0,
+                now,
+                enc,
               ]);
               final id = db.lastInsertRowId;
               _index(id, c.title, c.messages);
@@ -92,8 +103,14 @@ class ConversationStore {
               final oldUpdated = row['updated_at'] as int;
               if (c.messages.length > oldCount || c.updatedAt.millisecondsSinceEpoch > oldUpdated) {
                 update.execute([
-                  c.title, c.updatedAt.millisecondsSinceEpoch, c.messages.length, c.link,
-                  c.hasAttachments ? 1 : 0, now, enc, id,
+                  c.title,
+                  c.updatedAt.millisecondsSinceEpoch,
+                  c.messages.length,
+                  c.link,
+                  c.hasAttachments ? 1 : 0,
+                  now,
+                  enc,
+                  id,
                 ]);
                 db.execute('DELETE FROM conv_fts WHERE rowid=?', [id]);
                 _index(id, c.title, c.messages);
@@ -113,16 +130,25 @@ class ConversationStore {
         await Future<void>.delayed(Duration.zero); // 화면이 멈추지 않게 양보
       }
     } finally {
-      find.dispose();
-      insert.dispose();
-      update.dispose();
+      find.close();
+      insert.close();
+      update.close();
     }
-    db.execute(
-        'INSERT INTO imports(file_name, source, at, added, updated, unchanged, skipped) VALUES(?,?,?,?,?,?,?)',
-        [fileName, summary.sources.map((s) => s.key).join(','), now, summary.added, summary.updated, summary.unchanged, summary.skipped]);
+    db.execute('INSERT INTO imports(file_name, source, at, added, updated, unchanged, skipped) VALUES(?,?,?,?,?,?,?)', [
+      fileName,
+      summary.sources.map((s) => s.key).join(','),
+      now,
+      summary.added,
+      summary.updated,
+      summary.unchanged,
+      summary.skipped,
+    ]);
     AppLog.info('가져오기 완료', {
-      'added': summary.added, 'updated': summary.updated, 'unchanged': summary.unchanged,
-      'skipped': summary.skipped, 'cancelled': summary.cancelled,
+      'added': summary.added,
+      'updated': summary.updated,
+      'unchanged': summary.unchanged,
+      'skipped': summary.skipped,
+      'cancelled': summary.cancelled,
     });
     return summary;
   }
@@ -140,31 +166,24 @@ class ConversationStore {
   // ---------- 읽기 ----------
 
   static ConversationSummary rowToSummary(Row r) => ConversationSummary(
-        id: r['id'] as int,
-        source: AiSourceInfo.fromKey(r['source'] as String) ?? AiSource.claude,
-        externalId: r['ext_id'] as String,
-        title: r['title'] as String,
-        createdAt: DateTime.fromMillisecondsSinceEpoch(r['created_at'] as int),
-        updatedAt: DateTime.fromMillisecondsSinceEpoch(r['updated_at'] as int),
-        messageCount: r['msg_count'] as int,
-        starred: (r['starred'] as int) == 1,
-        summary: r['summary'] as String?,
-        link: r['link'] as String?,
-        hasAttachments: (r['has_attachments'] as int) == 1,
-        importedAt: DateTime.fromMillisecondsSinceEpoch(r['imported_at'] as int),
-      );
+    id: r['id'] as int,
+    source: AiSourceInfo.fromKey(r['source'] as String) ?? AiSource.claude,
+    externalId: r['ext_id'] as String,
+    title: r['title'] as String,
+    createdAt: DateTime.fromMillisecondsSinceEpoch(r['created_at'] as int),
+    updatedAt: DateTime.fromMillisecondsSinceEpoch(r['updated_at'] as int),
+    messageCount: r['msg_count'] as int,
+    starred: (r['starred'] as int) == 1,
+    summary: r['summary'] as String?,
+    link: r['link'] as String?,
+    hasAttachments: (r['has_attachments'] as int) == 1,
+    importedAt: DateTime.fromMillisecondsSinceEpoch(r['imported_at'] as int),
+  );
 
   static const summaryColumns =
       'c.id, c.source, c.ext_id, c.title, c.created_at, c.updated_at, c.msg_count, c.starred, c.summary, c.link, c.has_attachments, c.imported_at';
 
-  (String, List<Object?>) _filters({
-    AiSource? source,
-    int? topicId,
-    bool? starred,
-    String? tag,
-    DateTime? from,
-    DateTime? to,
-  }) {
+  (String, List<Object?>) _filters({AiSource? source, int? topicId, bool? starred, String? tag, DateTime? from, DateTime? to}) {
     final where = <String>[];
     final args = <Object?>[];
     if (source != null) {
@@ -172,7 +191,9 @@ class ConversationStore {
       args.add(source.key);
     }
     if (topicId != null) {
-      where.add("c.id IN (SELECT conv_id FROM conversation_topics WHERE origin!='removed' AND topic_id IN (WITH RECURSIVE sub(id) AS (SELECT ? UNION ALL SELECT t.id FROM topics t JOIN sub ON t.parent_id=sub.id) SELECT id FROM sub))");
+      where.add(
+        "c.id IN (SELECT conv_id FROM conversation_topics WHERE origin!='removed' AND topic_id IN (WITH RECURSIVE sub(id) AS (SELECT ? UNION ALL SELECT t.id FROM topics t JOIN sub ON t.parent_id=sub.id) SELECT id FROM sub))",
+      );
       args.add(topicId);
     }
     if (starred == true) where.add('c.starred=1');
@@ -204,8 +225,9 @@ class ConversationStore {
   }) {
     final (w, args) = _filters(source: source, topicId: topicId, starred: starred, tag: tag, from: from, to: to);
     final rows = db.select(
-        'SELECT $summaryColumns FROM conversations c $w ORDER BY c.created_at ${newestFirst ? 'DESC' : 'ASC'}, c.id DESC LIMIT ? OFFSET ?',
-        [...args, limit, offset]);
+      'SELECT $summaryColumns FROM conversations c $w ORDER BY c.created_at ${newestFirst ? 'DESC' : 'ASC'}, c.id DESC LIMIT ? OFFSET ?',
+      [...args, limit, offset],
+    );
     return rows.map(rowToSummary).toList();
   }
 
@@ -236,8 +258,9 @@ class ConversationStore {
   }
 
   List<ConversationSummary> importedSince(DateTime since) {
-    final rows = db.select('SELECT $summaryColumns FROM conversations c WHERE c.imported_at>=? ORDER BY c.created_at DESC',
-        [since.millisecondsSinceEpoch]);
+    final rows = db.select('SELECT $summaryColumns FROM conversations c WHERE c.imported_at>=? ORDER BY c.created_at DESC', [
+      since.millisecondsSinceEpoch,
+    ]);
     return rows.map(rowToSummary).toList();
   }
 
@@ -251,8 +274,9 @@ class ConversationStore {
   List<(int year, int month, int count)> months({int? topicId, AiSource? source}) {
     final (w, args) = _filters(topicId: topicId, source: source);
     final rows = db.select(
-        "SELECT strftime('%Y', c.created_at/1000, 'unixepoch', 'localtime') AS y, strftime('%m', c.created_at/1000, 'unixepoch', 'localtime') AS m, COUNT(*) AS n FROM conversations c $w GROUP BY y, m ORDER BY y DESC, m DESC",
-        args);
+      "SELECT strftime('%Y', c.created_at/1000, 'unixepoch', 'localtime') AS y, strftime('%m', c.created_at/1000, 'unixepoch', 'localtime') AS m, COUNT(*) AS n FROM conversations c $w GROUP BY y, m ORDER BY y DESC, m DESC",
+      args,
+    );
     return rows.map((r) => (int.parse(r['y'] as String), int.parse(r['m'] as String), r['n'] as int)).toList();
   }
 
@@ -289,20 +313,26 @@ class ConversationStore {
 
   Future<void> addNote(int convId, String text, {bool byVoice = false}) async {
     final enc = await cipher.encryptString(text);
-    db.execute('INSERT INTO notes(conv_id, created_at, by_voice, body) VALUES(?,?,?,?)',
-        [convId, DateTime.now().millisecondsSinceEpoch, byVoice ? 1 : 0, enc]);
+    db.execute('INSERT INTO notes(conv_id, created_at, by_voice, body) VALUES(?,?,?,?)', [
+      convId,
+      DateTime.now().millisecondsSinceEpoch,
+      byVoice ? 1 : 0,
+      enc,
+    ]);
   }
 
   Future<List<Note>> notes(int convId) async {
     final out = <Note>[];
     for (final r in db.select('SELECT * FROM notes WHERE conv_id=? ORDER BY created_at DESC', [convId])) {
-      out.add(Note(
-        id: r['id'] as int,
-        conversationId: convId,
-        createdAt: DateTime.fromMillisecondsSinceEpoch(r['created_at'] as int),
-        text: await cipher.decryptString(r['body'] as Uint8List),
-        byVoice: (r['by_voice'] as int) == 1,
-      ));
+      out.add(
+        Note(
+          id: r['id'] as int,
+          conversationId: convId,
+          createdAt: DateTime.fromMillisecondsSinceEpoch(r['created_at'] as int),
+          text: await cipher.decryptString(r['body'] as Uint8List),
+          byVoice: (r['by_voice'] as int) == 1,
+        ),
+      );
     }
     return out;
   }
@@ -312,8 +342,9 @@ class ConversationStore {
   // ---------- 비용 ----------
 
   void addCost(String model, int inTok, int outTok, double usd) => db.execute(
-      'INSERT INTO cost_log(at, model, input_tokens, output_tokens, usd) VALUES(?,?,?,?,?)',
-      [DateTime.now().millisecondsSinceEpoch, model, inTok, outTok, usd]);
+    'INSERT INTO cost_log(at, model, input_tokens, output_tokens, usd) VALUES(?,?,?,?,?)',
+    [DateTime.now().millisecondsSinceEpoch, model, inTok, outTok, usd],
+  );
 
   double costThisMonth([DateTime? now]) {
     final n = now ?? DateTime.now();

@@ -25,15 +25,15 @@ class SearchQuery {
   bool get isEmpty => keywords.isEmpty && from == null && to == null && source == null;
 
   SearchQuery copyWith({bool? exact, bool? similar, AiSource? source, bool clearSource = false}) => SearchQuery(
-        keywords: keywords,
-        from: from,
-        to: to,
-        source: clearSource ? null : (source ?? this.source),
-        exact: exact ?? this.exact,
-        similar: similar ?? this.similar,
-        dateLabel: dateLabel,
-        raw: raw,
-      );
+    keywords: keywords,
+    from: from,
+    to: to,
+    source: clearSource ? null : (source ?? this.source),
+    exact: exact ?? this.exact,
+    similar: similar ?? this.similar,
+    dateLabel: dateLabel,
+    raw: raw,
+  );
 }
 
 /// "지난달에 유튜브 앱 얘기한 대화 찾아줘" 같은 말을 검색 조건으로 바꿉니다.
@@ -46,12 +46,59 @@ class QueryParser {
 
   // 뒤에서부터 지울 말(길이가 긴 것 먼저)
   static final _fillers = <String>[
-    '찾아주세요', '찾아 주세요', '찾아줘요', '찾아 줘요', '찾아줘', '찾아 줘', '찾아봐', '찾아 봐', '찾아',
-    '보여주세요', '보여 주세요', '보여줘', '보여 줘', '검색해줘', '검색해 줘', '검색해', '검색',
-    '알려줘', '알려 줘', '있었던', '있던',
-    '이야기했던', '이야기한', '이야기', '얘기했던', '얘기한', '얘기', '말했던', '말한', '나눈', '나눴던', '했던', '물어본', '물어봤던',
-    '대화들', '대화를', '대화', '기록', '내용', '관련된', '관련', '에 대한', '에대한', '에 관한', '거', '것', '좀', '내가', '제가', '혹시',
-    '에서', '에게', '한테',
+    '찾아주세요',
+    '찾아 주세요',
+    '찾아줘요',
+    '찾아 줘요',
+    '찾아줘',
+    '찾아 줘',
+    '찾아봐',
+    '찾아 봐',
+    '찾아',
+    '보여주세요',
+    '보여 주세요',
+    '보여줘',
+    '보여 줘',
+    '검색해줘',
+    '검색해 줘',
+    '검색해',
+    '검색',
+    '알려줘',
+    '알려 줘',
+    '있었던',
+    '있던',
+    '이야기했던',
+    '이야기한',
+    '이야기',
+    '얘기했던',
+    '얘기한',
+    '얘기',
+    '말했던',
+    '말한',
+    '나눈',
+    '나눴던',
+    '했던',
+    '물어본',
+    '물어봤던',
+    '대화들',
+    '대화를',
+    '대화',
+    '기록',
+    '내용',
+    '관련된',
+    '관련',
+    '에 대한',
+    '에대한',
+    '에 관한',
+    '거',
+    '것',
+    '좀',
+    '내가',
+    '제가',
+    '혹시',
+    '에서',
+    '에게',
+    '한테',
   ];
 
   static const _particles = ['에서', '으로', '에게', '한테', '이랑', '하고', '은', '는', '이', '가', '을', '를', '에', '의', '로', '와', '과', '랑', '도'];
@@ -71,38 +118,62 @@ class QueryParser {
 
     final today = DateTime(n.year, n.month, n.day);
     final rules = <(RegExp, void Function(Match))>[
-      (RegExp(r'최근\s*(\d+)\s*일'), (m) => range(today.subtract(Duration(days: int.parse(m[1]!) - 1)), today.add(const Duration(days: 1)), '최근 ${m[1]}일')),
-      (RegExp(r'(?:최근|지난)\s*(\d+)\s*(?:개월|달)'), (m) => range(DateTime(n.year, n.month - int.parse(m[1]!), n.day), today.add(const Duration(days: 1)), '최근 ${m[1]}개월')),
-      (RegExp(r'(\d{4})\s*년\s*(\d{1,2})\s*월'), (m) {
-        final y = int.parse(m[1]!), mo = int.parse(m[2]!);
-        range(DateTime(y, mo), DateTime(y, mo + 1), '$y년 $mo월');
-      }),
-      (RegExp(r'(\d{4})\s*년'), (m) {
-        final y = int.parse(m[1]!);
-        range(DateTime(y), DateTime(y + 1), '$y년');
-      }),
-      (RegExp(r'(?<!\d)(\d{1,2})\s*월'), (m) {
-        final mo = int.parse(m[1]!);
-        if (mo < 1 || mo > 12) return;
-        var y = n.year;
-        if (mo > n.month) y -= 1; // 앞으로 올 달이면 작년
-        range(DateTime(y, mo), DateTime(y, mo + 1), '$y년 $mo월');
-      }),
+      (
+        RegExp(r'최근\s*(\d+)\s*일'),
+        (m) => range(today.subtract(Duration(days: int.parse(m[1]!) - 1)), today.add(const Duration(days: 1)), '최근 ${m[1]}일'),
+      ),
+      (
+        RegExp(r'(?:최근|지난)\s*(\d+)\s*(?:개월|달)'),
+        (m) => range(DateTime(n.year, n.month - int.parse(m[1]!), n.day), today.add(const Duration(days: 1)), '최근 ${m[1]}개월'),
+      ),
+      (
+        RegExp(r'(\d{4})\s*년\s*(\d{1,2})\s*월'),
+        (m) {
+          final y = int.parse(m[1]!), mo = int.parse(m[2]!);
+          range(DateTime(y, mo), DateTime(y, mo + 1), '$y년 $mo월');
+        },
+      ),
+      (
+        RegExp(r'(\d{4})\s*년'),
+        (m) {
+          final y = int.parse(m[1]!);
+          range(DateTime(y), DateTime(y + 1), '$y년');
+        },
+      ),
+      (
+        RegExp(r'(?<!\d)(\d{1,2})\s*월'),
+        (m) {
+          final mo = int.parse(m[1]!);
+          if (mo < 1 || mo > 12) return;
+          var y = n.year;
+          if (mo > n.month) y -= 1; // 앞으로 올 달이면 작년
+          range(DateTime(y, mo), DateTime(y, mo + 1), '$y년 $mo월');
+        },
+      ),
       (RegExp(r'그저께|그제'), (_) => range(today.subtract(const Duration(days: 2)), today.subtract(const Duration(days: 1)), '그저께')),
       (RegExp(r'어제'), (_) => range(today.subtract(const Duration(days: 1)), today, '어제')),
       (RegExp(r'오늘'), (_) => range(today, today.add(const Duration(days: 1)), '오늘')),
-      (RegExp(r'지지난\s*주'), (_) {
-        final start = today.subtract(Duration(days: today.weekday - 1 + 14));
-        range(start, start.add(const Duration(days: 7)), '지지난주');
-      }),
-      (RegExp(r'지난\s*주|저번\s*주'), (_) {
-        final start = today.subtract(Duration(days: today.weekday - 1 + 7));
-        range(start, start.add(const Duration(days: 7)), '지난주');
-      }),
-      (RegExp(r'이번\s*주'), (_) {
-        final start = today.subtract(Duration(days: today.weekday - 1));
-        range(start, start.add(const Duration(days: 7)), '이번 주');
-      }),
+      (
+        RegExp(r'지지난\s*주'),
+        (_) {
+          final start = today.subtract(Duration(days: today.weekday - 1 + 14));
+          range(start, start.add(const Duration(days: 7)), '지지난주');
+        },
+      ),
+      (
+        RegExp(r'지난\s*주|저번\s*주'),
+        (_) {
+          final start = today.subtract(Duration(days: today.weekday - 1 + 7));
+          range(start, start.add(const Duration(days: 7)), '지난주');
+        },
+      ),
+      (
+        RegExp(r'이번\s*주'),
+        (_) {
+          final start = today.subtract(Duration(days: today.weekday - 1));
+          range(start, start.add(const Duration(days: 7)), '이번 주');
+        },
+      ),
       (RegExp(r'지지난\s*달'), (_) => range(DateTime(n.year, n.month - 2), DateTime(n.year, n.month - 1), '지지난달')),
       (RegExp(r'지난\s*달|저번\s*달|전\s*달'), (_) => range(DateTime(n.year, n.month - 1), DateTime(n.year, n.month), '지난달')),
       (RegExp(r'이번\s*달|이달'), (_) => range(DateTime(n.year, n.month), DateTime(n.year, n.month + 1), '이번 달')),
@@ -131,7 +202,7 @@ class QueryParser {
         final idx = lower.indexOf(w);
         if (idx >= 0) {
           source = e.key;
-          text = text.substring(0, idx) + ' ' + text.substring(idx + w.length);
+          text = '${text.substring(0, idx)} ${text.substring(idx + w.length)}';
           break outer;
         }
       }
@@ -162,16 +233,7 @@ class QueryParser {
       if (const ['줘', '주세요', '줘요', '봐', '해', '해줘', '해주세요', '에서', '에'].contains(w)) continue;
       cleaned.add(w);
     }
-    return SearchQuery(
-      keywords: cleaned,
-      from: from,
-      to: to,
-      source: source,
-      exact: exact,
-      similar: similar,
-      dateLabel: label,
-      raw: input,
-    );
+    return SearchQuery(keywords: cleaned, from: from, to: to, source: source, exact: exact, similar: similar, dateLabel: label, raw: input);
   }
 
   static String _stripFillers(String w) {

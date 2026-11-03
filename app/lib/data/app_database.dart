@@ -129,5 +129,5 @@ class AppDatabase {
     }
   }
 
-  void close() => db.dispose();
+  void close() => db.close();
 }

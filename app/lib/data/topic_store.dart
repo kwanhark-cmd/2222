@@ -36,8 +36,11 @@ class TopicStore {
       if (key != null) setKey(key, existing.id);
       return existing.id;
     }
-    db.execute('INSERT INTO topics(name, parent_id, created_at) VALUES(?,?,?)',
-        [name.trim(), parentId, DateTime.now().millisecondsSinceEpoch]);
+    db.execute('INSERT INTO topics(name, parent_id, created_at) VALUES(?,?,?)', [
+      name.trim(),
+      parentId,
+      DateTime.now().millisecondsSinceEpoch,
+    ]);
     final id = db.lastInsertRowId;
     if (key != null) setKey(key, id);
     return id;
@@ -49,8 +52,7 @@ class TopicStore {
     return r.isEmpty ? null : r.first['topic_id'] as int;
   }
 
-  void setKey(String key, int topicId) =>
-      db.execute('INSERT OR REPLACE INTO topic_keys(key, topic_id) VALUES(?,?)', [key, topicId]);
+  void setKey(String key, int topicId) => db.execute('INSERT OR REPLACE INTO topic_keys(key, topic_id) VALUES(?,?)', [key, topicId]);
 
   void rename(int id, String newName) {
     final n = newName.trim();
@@ -68,8 +70,9 @@ class TopicStore {
 
   Set<int> _descendants(int id) {
     final rows = db.select(
-        'WITH RECURSIVE sub(id) AS (SELECT id FROM topics WHERE parent_id=? UNION ALL SELECT t.id FROM topics t JOIN sub ON t.parent_id=sub.id) SELECT id FROM sub',
-        [id]);
+      'WITH RECURSIVE sub(id) AS (SELECT id FROM topics WHERE parent_id=? UNION ALL SELECT t.id FROM topics t JOIN sub ON t.parent_id=sub.id) SELECT id FROM sub',
+      [id],
+    );
     return rows.map((r) => r['id'] as int).toSet();
   }
 
@@ -78,9 +81,11 @@ class TopicStore {
     if (fromId == intoId) return;
     db.execute('BEGIN');
     try {
-      db.execute('''INSERT OR IGNORE INTO conversation_topics(conv_id, topic_id, origin)
+      db.execute(
+        '''INSERT OR IGNORE INTO conversation_topics(conv_id, topic_id, origin)
           SELECT conv_id, ?, CASE WHEN origin='removed' THEN 'removed' ELSE 'user' END FROM conversation_topics WHERE topic_id=?''',
-          [intoId, fromId]);
+        [intoId, fromId],
+      );
       db.execute('UPDATE topic_keys SET topic_id=? WHERE topic_id=?', [intoId, fromId]);
       db.execute('UPDATE OR IGNORE corrections SET topic_id=? WHERE topic_id=?', [intoId, fromId]);
       db.execute('UPDATE topics SET parent_id=? WHERE parent_id=?', [intoId, fromId]);
@@ -109,15 +114,15 @@ class TopicStore {
   }
 
   void setOrigin(int convId, int topicId, String origin) => db.execute(
-      'INSERT INTO conversation_topics(conv_id, topic_id, origin) VALUES(?,?,?) ON CONFLICT(conv_id, topic_id) DO UPDATE SET origin=excluded.origin',
-      [convId, topicId, origin]);
+    'INSERT INTO conversation_topics(conv_id, topic_id, origin) VALUES(?,?,?) ON CONFLICT(conv_id, topic_id) DO UPDATE SET origin=excluded.origin',
+    [convId, topicId, origin],
+  );
 
   /// 자동 분류 결과 넣기(사용자가 정한 것은 건드리지 않음).
-  void addAuto(int convId, int topicId) => db.execute(
-      "INSERT OR IGNORE INTO conversation_topics(conv_id, topic_id, origin) VALUES(?,?,'auto')", [convId, topicId]);
+  void addAuto(int convId, int topicId) =>
+      db.execute("INSERT OR IGNORE INTO conversation_topics(conv_id, topic_id, origin) VALUES(?,?,'auto')", [convId, topicId]);
 
-  void clearAuto(int convId) =>
-      db.execute("DELETE FROM conversation_topics WHERE conv_id=? AND origin='auto'", [convId]);
+  void clearAuto(int convId) => db.execute("DELETE FROM conversation_topics WHERE conv_id=? AND origin='auto'", [convId]);
 
   /// 사용자가 이 대화를 이 주제로 옮김: 다른 주제에서는 빼고 이 주제에 넣음.
   void moveTo(int convId, int topicId) {
@@ -130,8 +135,10 @@ class TopicStore {
   }
 
   List<Topic> topicsOf(int convId) => db
-      .select("SELECT t.id, t.name, t.parent_id FROM topics t JOIN conversation_topics ct ON ct.topic_id=t.id WHERE ct.conv_id=? AND ct.origin!='removed' ORDER BY t.name",
-          [convId])
+      .select(
+        "SELECT t.id, t.name, t.parent_id FROM topics t JOIN conversation_topics ct ON ct.topic_id=t.id WHERE ct.conv_id=? AND ct.origin!='removed' ORDER BY t.name",
+        [convId],
+      )
       .map((r) => Topic(id: r['id'] as int, name: r['name'] as String, parentId: r['parent_id'] as int?))
       .toList();
 
@@ -148,8 +155,9 @@ class TopicStore {
   void rememberCorrection(List<String> words, int topicId) {
     for (final w in words) {
       db.execute(
-          'INSERT INTO corrections(word, topic_id, weight) VALUES(?,?,1) ON CONFLICT(word, topic_id) DO UPDATE SET weight=weight+1',
-          [w, topicId]);
+        'INSERT INTO corrections(word, topic_id, weight) VALUES(?,?,1) ON CONFLICT(word, topic_id) DO UPDATE SET weight=weight+1',
+        [w, topicId],
+      );
     }
   }
 
@@ -167,11 +175,11 @@ class TopicStore {
   (String, bool, DateTime)? digest(int topicId) {
     final r = db.select('SELECT text, by_ai, updated_at FROM topic_digest WHERE topic_id=?', [topicId]);
     if (r.isEmpty) return null;
-    return (r.first['text'] as String, (r.first['by_ai'] as int) == 1,
-        DateTime.fromMillisecondsSinceEpoch(r.first['updated_at'] as int));
+    return (r.first['text'] as String, (r.first['by_ai'] as int) == 1, DateTime.fromMillisecondsSinceEpoch(r.first['updated_at'] as int));
   }
 
   void setDigest(int topicId, String text, {required bool byAi}) => db.execute(
-      'INSERT OR REPLACE INTO topic_digest(topic_id, text, by_ai, updated_at) VALUES(?,?,?,?)',
-      [topicId, text, byAi ? 1 : 0, DateTime.now().millisecondsSinceEpoch]);
+    'INSERT OR REPLACE INTO topic_digest(topic_id, text, by_ai, updated_at) VALUES(?,?,?,?)',
+    [topicId, text, byAi ? 1 : 0, DateTime.now().millisecondsSinceEpoch],
+  );
 }

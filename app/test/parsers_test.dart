@@ -28,7 +28,13 @@ void main() {
     });
     test('모르는 항목·깨진 항목은 건너뛴다', () {
       final data = jsonEncode([
-        {'uuid': 'a', 'name': '정상', 'chat_messages': [{'sender': 'human', 'text': '안녕', 'new_field': 1}]},
+        {
+          'uuid': 'a',
+          'name': '정상',
+          'chat_messages': [
+            {'sender': 'human', 'text': '안녕', 'new_field': 1},
+          ],
+        },
         {'uuid': 'b', 'name': '깨짐', 'chat_messages': 'oops', 'created_at': 12},
         'string-item',
         {'name': 'id 없음', 'chat_messages': []},
@@ -78,10 +84,28 @@ void main() {
     });
     test('JSON 기록도 읽는다', () {
       final data = jsonEncode([
-        {'header': 'Gemini Apps', 'title': 'Prompted 오늘 날씨 어때?', 'time': '2026-10-01T01:00:00Z', 'products': ['Gemini Apps'],
-         'safeHtmlItem': [{'html': '<p>맑아요</p>'}], 'attachedFiles': ['사진.jpg']},
-        {'header': 'Gemini Apps', 'title': 'Prompted 우산 필요해?', 'time': '2026-10-01T01:10:00Z', 'products': ['Gemini Apps']},
-        {'header': 'Gemini Apps', 'title': 'Prompted 다른 이야기', 'time': '2026-10-02T01:10:00Z', 'products': ['Gemini Apps']},
+        {
+          'header': 'Gemini Apps',
+          'title': 'Prompted 오늘 날씨 어때?',
+          'time': '2026-10-01T01:00:00Z',
+          'products': ['Gemini Apps'],
+          'safeHtmlItem': [
+            {'html': '<p>맑아요</p>'},
+          ],
+          'attachedFiles': ['사진.jpg'],
+        },
+        {
+          'header': 'Gemini Apps',
+          'title': 'Prompted 우산 필요해?',
+          'time': '2026-10-01T01:10:00Z',
+          'products': ['Gemini Apps'],
+        },
+        {
+          'header': 'Gemini Apps',
+          'title': 'Prompted 다른 이야기',
+          'time': '2026-10-02T01:10:00Z',
+          'products': ['Gemini Apps'],
+        },
       ]);
       final r = ImportReader.read('MyActivity.json', Uint8List.fromList(utf8.encode(data))).single;
       expect(r.conversations.length, 2);
@@ -97,12 +121,12 @@ void main() {
 
   group('알 수 없는 파일', () {
     test('읽을 수 없는 파일은 멈추지 않고 안내용 예외를 낸다', () {
-      expect(() => ImportReader.read('x.json', Uint8List.fromList(utf8.encode('{"hello": 1}'))),
-          throwsA(isA<UnreadableFileException>()));
-      expect(() => ImportReader.read('x.txt', Uint8List.fromList(utf8.encode('그냥 글'))),
-          throwsA(isA<UnreadableFileException>()));
-      expect(() => ImportReader.read('x.zip', Uint8List.fromList([0x50, 0x4b, 0x03, 0x04, 1, 2, 3])),
-          throwsA(isA<UnreadableFileException>()));
+      expect(() => ImportReader.read('x.json', Uint8List.fromList(utf8.encode('{"hello": 1}'))), throwsA(isA<UnreadableFileException>()));
+      expect(() => ImportReader.read('x.txt', Uint8List.fromList(utf8.encode('그냥 글'))), throwsA(isA<UnreadableFileException>()));
+      expect(
+        () => ImportReader.read('x.zip', Uint8List.fromList([0x50, 0x4b, 0x03, 0x04, 1, 2, 3])),
+        throwsA(isA<UnreadableFileException>()),
+      );
       final emptyZip = Uint8List.fromList(ZipEncoder().encode(Archive()..addFile(ArchiveFile.bytes('a.txt', [1]))));
       expect(() => ImportReader.read('e.zip', emptyZip), throwsA(isA<UnreadableFileException>()));
     });

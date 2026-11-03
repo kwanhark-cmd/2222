@@ -25,8 +25,7 @@ class ImportReader {
     return [_readJsonText(text, hint)];
   }
 
-  static bool _isZip(Uint8List b) =>
-      b.length > 4 && b[0] == 0x50 && b[1] == 0x4b && b[2] == 0x03 && b[3] == 0x04;
+  static bool _isZip(Uint8List b) => b.length > 4 && b[0] == 0x50 && b[1] == 0x4b && b[2] == 0x03 && b[3] == 0x04;
 
   static String _decodeText(Uint8List bytes) {
     var start = 0;

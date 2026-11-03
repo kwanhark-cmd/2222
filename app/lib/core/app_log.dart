@@ -61,10 +61,8 @@ class AppLog {
     } catch (_) {}
   }
 
-  static void info(String event, [Map<String, Object?>? fields]) =>
-      _write(_format('정보', event, fields));
-  static void warn(String event, [Map<String, Object?>? fields]) =>
-      _write(_format('주의', event, fields));
+  static void info(String event, [Map<String, Object?>? fields]) => _write(_format('정보', event, fields));
+  static void warn(String event, [Map<String, Object?>? fields]) => _write(_format('주의', event, fields));
   static void error(String event, Object error, [StackTrace? st]) {
     final where = st?.toString().split('\n').take(6).join(' | ') ?? '';
     _write(_format('오류', event, {'type': error.runtimeType, 'detail': error.toString(), 'at': where}));

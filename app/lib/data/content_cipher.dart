@@ -37,7 +37,10 @@ class ContentCipher {
     final nonce = data.sublist(1, 13);
     final mac = Mac(data.sublist(data.length - 16));
     final cipher = data.sublist(13, data.length - 16);
-    final plain = await _algo.decrypt(SecretBox(cipher, nonce: nonce, mac: mac), secretKey: _key);
+    final plain = await _algo.decrypt(
+      SecretBox(cipher, nonce: nonce, mac: mac),
+      secretKey: _key,
+    );
     return utf8.decode(gzip.decode(plain));
   }
 }
@@ -70,8 +73,10 @@ class PasswordCipher {
     final mac = Mac(data.sublist(33, 49));
     final cipher = data.sublist(49);
     final key = await _derive(password, salt);
-    final plain = await AesGcm.with256bits()
-        .decrypt(SecretBox(cipher, nonce: nonce, mac: mac), secretKey: key);
+    final plain = await AesGcm.with256bits().decrypt(
+      SecretBox(cipher, nonce: nonce, mac: mac),
+      secretKey: key,
+    );
     return gzip.decode(plain);
   }
 
