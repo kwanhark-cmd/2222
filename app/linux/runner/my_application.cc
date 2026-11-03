@@ -1,5 +1,6 @@
 #include "my_application.h"
 
+#include <cstring>
 #include <flutter_linux/flutter_linux.h>
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
@@ -20,6 +21,27 @@ static void first_frame_cb(MyApplication* self, FlView* view) {
 }
 
 // Implements GApplication::activate.
+// 앱 안에서 표시 이름을 바꾸면 창 제목도 바꿈("aico/window" setTitle)
+static void window_method_cb(FlMethodChannel* channel, FlMethodCall* call, gpointer user_data) {
+  GtkWindow* window = GTK_WINDOW(user_data);
+  g_autoptr(FlMethodResponse) response = nullptr;
+  if (strcmp(fl_method_call_get_name(call), "setTitle") == 0) {
+    FlValue* args = fl_method_call_get_args(call);
+    if (args != nullptr && fl_value_get_type(args) == FL_VALUE_TYPE_STRING) {
+      const gchar* title = fl_value_get_string(args);
+      GtkWidget* bar = gtk_window_get_titlebar(window);
+      if (bar != nullptr && GTK_IS_HEADER_BAR(bar)) {
+        gtk_header_bar_set_title(GTK_HEADER_BAR(bar), title);
+      }
+      gtk_window_set_title(window, title);
+    }
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+  } else {
+    response = FL_METHOD_RESPONSE(fl_method_not_implemented_response_new());
+  }
+  fl_method_call_respond(call, response, nullptr);
+}
+
 static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
   GtkWindow* window =
@@ -74,6 +96,13 @@ static void my_application_activate(GApplication* application) {
   gtk_widget_realize(GTK_WIDGET(view));
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
+
+  g_autoptr(FlStandardMethodCodec) codec = fl_standard_method_codec_new();
+  FlMethodChannel* window_channel = fl_method_channel_new(
+      fl_engine_get_binary_messenger(fl_view_get_engine(view)), "aico/window",
+      FL_METHOD_CODEC(codec));
+  fl_method_channel_set_method_call_handler(window_channel, window_method_cb,
+                                            window, nullptr);
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }

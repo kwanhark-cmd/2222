@@ -14,6 +14,7 @@ class VoiceTextField extends StatefulWidget {
   final TextEditingController? controller;
   final bool autofocus;
   final String submitLabel;
+  final bool large; // 홈의 주인공 검색창(높이 68)
 
   const VoiceTextField({
     super.key,
@@ -22,6 +23,7 @@ class VoiceTextField extends StatefulWidget {
     this.controller,
     this.autofocus = false,
     this.submitLabel = '찾기',
+    this.large = false,
   });
 
   @override
@@ -69,10 +71,19 @@ class _VoiceTextFieldState extends State<VoiceTextField> {
             controller: _ctrl,
             autofocus: widget.autofocus,
             textInputAction: TextInputAction.search,
-            style: Theme.of(context).textTheme.bodyLarge,
+            style: widget.large ? Theme.of(context).textTheme.titleMedium : Theme.of(context).textTheme.bodyLarge,
             decoration: InputDecoration(
               hintText: _listening ? '듣고 있어요… 말씀하세요' : widget.hint,
-              prefixIcon: Icon(Icons.search_rounded, color: p.textMuted, size: 28),
+              contentPadding: widget.large ? const EdgeInsets.symmetric(horizontal: 16, vertical: 22) : null,
+              filled: true,
+              fillColor: p.surface,
+              enabledBorder: widget.large
+                  ? OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppSize.radiusCard),
+                      borderSide: BorderSide(color: p.primary, width: 2.5),
+                    )
+                  : null,
+              prefixIcon: Icon(Icons.search_rounded, color: widget.large ? p.primaryText : p.textMuted, size: widget.large ? 34 : 28),
               suffixIcon: _ctrl.text.isEmpty
                   ? null
                   : IconButton(
@@ -88,8 +99,8 @@ class _VoiceTextFieldState extends State<VoiceTextField> {
         const SizedBox(width: AppSize.gapS),
         if (canVoice)
           SizedBox(
-            width: 64,
-            height: AppSize.buttonHeight,
+            width: widget.large ? 72 : 64,
+            height: widget.large ? AppSize.searchHeight : AppSize.buttonHeight,
             child: Tooltip(
               message: _listening ? '그만 듣기' : '말로 하기',
               child: _MicButton(listening: _listening, onTap: _listen),

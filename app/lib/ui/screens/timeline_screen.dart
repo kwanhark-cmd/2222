@@ -14,7 +14,8 @@ import 'import_screen.dart';
 
 /// 날짜순 타임라인: 연·월 이동, 주제·AI 거르기.
 class TimelineScreen extends StatefulWidget {
-  const TimelineScreen({super.key});
+  final bool asTab;
+  const TimelineScreen({super.key, this.asTab = false});
   @override
   State<TimelineScreen> createState() => _TimelineScreenState();
 }
@@ -36,6 +37,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
     if (months.isEmpty) {
       return AppPage(
         title: '날짜별 보기',
+        isHome: widget.asTab,
         body: Column(
           children: [
             _filters(context, s.topics.all()),
@@ -70,6 +72,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
 
     return AppPage(
       title: '날짜별 보기',
+      isHome: widget.asTab,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

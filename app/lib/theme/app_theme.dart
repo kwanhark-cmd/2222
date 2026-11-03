@@ -40,6 +40,8 @@ class AppTheme extends ThemeExtension<AppTheme> {
     TextStyle t(double size, FontWeight w, {Color? color, double height = 1.45}) =>
         TextStyle(fontSize: size, fontWeight: w, color: color ?? p.text, height: height, fontFamily: 'NanumGothic');
     final text = TextTheme(
+      // 글자 위계 4단계: 큰 숫자(display) > 제목(title) > 본문(body) > 설명(small)
+      displaySmall: t(AppSize.textDisplay, FontWeight.w900, height: 1.1),
       headlineMedium: t(AppSize.textHeadline, FontWeight.w800, height: 1.3),
       titleLarge: t(AppSize.textTitle, FontWeight.w800, height: 1.3),
       titleMedium: t(AppSize.textBody + 1, FontWeight.w700),
@@ -86,13 +88,16 @@ class AppTheme extends ThemeExtension<AppTheme> {
         titleTextStyle: text.titleLarge,
         toolbarHeight: 64,
       ),
+      // 테두리만 있는 상자 대신: 배경색을 채운 카드 + 부드러운 그림자(고대비에서만 테두리)
       cardTheme: CardThemeData(
         color: p.surface,
-        elevation: 0,
+        elevation: p.borderWidth > 1 ? 0 : 2,
+        shadowColor: p.shadow,
+        surfaceTintColor: Colors.transparent,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSize.radiusCard),
-          side: BorderSide(color: p.border, width: p.borderWidth),
+          side: p.borderWidth > 1 ? BorderSide(color: p.border, width: p.borderWidth) : BorderSide.none,
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(

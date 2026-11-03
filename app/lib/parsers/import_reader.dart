@@ -14,9 +14,18 @@ import 'parser_common.dart';
 class ImportReader {
   /// 백그라운드(Isolate)에서 실행할 수 있도록 순수 함수로 둡니다.
   static List<ParseResult> read(String fileName, Uint8List bytes, {AiSource? hint}) {
+    if (bytes.isEmpty) throw const UnreadableFileException('빈 파일(0바이트)', kind: UnreadableKind.empty);
     final lower = fileName.toLowerCase();
-    if (lower.endsWith('.zip') || _isZip(bytes)) {
+    if (_isZip(bytes)) {
       return _readZip(bytes, hint);
+    }
+    if (lower.endsWith('.zip')) {
+      // 이름만 .zip이고 내용은 다른 것: 만료된 링크의 오류 페이지인 경우가 많음
+      final text = _decodeText(bytes.length > 20000 ? Uint8List.sublistView(bytes, 0, 20000) : bytes);
+      if (looksLikeExpiredLinkPage(text)) {
+        throw const UnreadableFileException('이름은 zip이지만 내려받기 오류 페이지', kind: UnreadableKind.expiredLink);
+      }
+      throw const UnreadableFileException('이름은 zip이지만 압축 파일이 아님(내려받기가 덜 됐을 수 있음)', kind: UnreadableKind.empty);
     }
     final text = _decodeText(bytes);
     if (lower.endsWith('.html') || lower.endsWith('.htm') || text.trimLeft().startsWith('<')) {
@@ -42,6 +51,15 @@ class ImportReader {
     }
     final results = <ParseResult>[];
     final names = <String>[];
+    // 제미나이 기록이 JSON과 HTML로 함께 들어 있으면 더 정확한 JSON만 읽음
+    final hasGeminiJson = archive.files.any((f) {
+      final n = f.name.replaceAll('\\', '/');
+      final b = n.split('/').last.toLowerCase();
+      return f.isFile &&
+          (n.contains('Gemini') || n.contains('제미나이')) &&
+          (b.contains('activity') || b.contains('활동')) &&
+          b.endsWith('.json');
+    });
     for (final f in archive.files) {
       if (!f.isFile) continue;
       final name = f.name.replaceAll('\\', '/');
@@ -55,7 +73,7 @@ class ImportReader {
           results.add(_readJsonText(_decodeText(Uint8List.fromList(f.content)), hint));
         } else if (inGeminiFolder && isActivity && base.endsWith('.json')) {
           results.add(_readJsonText(_decodeText(Uint8List.fromList(f.content)), AiSource.gemini));
-        } else if (inGeminiFolder && isActivity && (base.endsWith('.html') || base.endsWith('.htm'))) {
+        } else if (!hasGeminiJson && inGeminiFolder && isActivity && (base.endsWith('.html') || base.endsWith('.htm'))) {
           results.add(_readHtml(_decodeText(Uint8List.fromList(f.content)), AiSource.gemini));
         }
       } on UnreadableFileException {
@@ -87,11 +105,27 @@ class ImportReader {
     return bySource.values.toList();
   }
 
+  /// 링크가 만료됐을 때 받게 되는 오류 페이지(파일 대신 저장된 경우).
+  static bool looksLikeExpiredLinkPage(String text) {
+    final t = text.length > 20000 ? text.substring(0, 20000) : text;
+    final lower = t.toLowerCase();
+    return lower.contains('expired') ||
+        lower.contains('accessdenied') ||
+        lower.contains('access denied') ||
+        lower.contains('signaturedoesnotmatch') ||
+        t.contains('만료') ||
+        t.contains('링크가 유효하지') ||
+        t.contains('권한이 없');
+  }
+
   static ParseResult _readJsonText(String text, AiSource? hint) {
     dynamic decoded;
     try {
       decoded = jsonDecode(text);
     } catch (_) {
+      if (looksLikeExpiredLinkPage(text)) {
+        throw const UnreadableFileException('내려받기 링크 오류(만료·권한 없음)', kind: UnreadableKind.expiredLink);
+      }
       throw const UnreadableFileException('JSON 형식이 아님');
     }
     // 일부 형식은 {conversations:[...]} 처럼 한 번 감싸져 있음
@@ -131,6 +165,9 @@ class ImportReader {
       try {
         return ChatGptParser.parse(jsonDecode(m.group(1)!));
       } catch (_) {}
+    }
+    if (looksLikeExpiredLinkPage(text)) {
+      throw const UnreadableFileException('내려받기 링크 오류 페이지(만료·권한 없음)', kind: UnreadableKind.expiredLink);
     }
     throw const UnreadableFileException('알 수 없는 HTML 파일');
   }

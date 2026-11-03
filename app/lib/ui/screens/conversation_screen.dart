@@ -26,7 +26,18 @@ class ConversationScreen extends StatefulWidget {
   final int id;
   final List<String> highlight;
   final int focusMessage;
-  const ConversationScreen({super.key, required this.id, this.highlight = const [], this.focusMessage = 0});
+
+  /// 넓은 화면에서 목록 옆 칸에 넣을 때(뒤로·홈 버튼 없이)
+  final bool embedded;
+  final VoidCallback? onClosed;
+  const ConversationScreen({
+    super.key,
+    required this.id,
+    this.highlight = const [],
+    this.focusMessage = 0,
+    this.embedded = false,
+    this.onClosed,
+  });
   @override
   State<ConversationScreen> createState() => _ConversationScreenState();
 }
@@ -148,9 +159,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
     c.touch();
   }
 
-  Future<void> _export(ConversationSummary conv) async {
-    final fmt = await pickOne<ExportFormat>(context, title: '어떤 문서로 내보낼까요?', options: [for (final f in ExportFormat.values) (f, f.label)]);
-    if (fmt == null || !mounted) return;
+  Future<void> _export(ConversationSummary conv, ExportFormat fmt) async {
+    if (!mounted) return;
     final msgs = messages ?? const [];
     final name = '${ExportService.safeFileName(conv.title)}.${fmt.ext}';
     try {
@@ -190,7 +200,11 @@ class _ConversationScreenState extends State<ConversationScreen> {
     if (!ok || !mounted) return;
     c.session!.store.deleteFromApp(widget.id);
     c.touch();
-    Navigator.of(context).pop();
+    if (widget.embedded) {
+      widget.onClosed?.call();
+    } else {
+      Navigator.of(context).pop();
+    }
   }
 
   Future<void> _command(String text) async {
@@ -266,183 +280,240 @@ class _ConversationScreenState extends State<ConversationScreen> {
     final topics = s.topics.topicsOf(widget.id);
     final tags = s.store.tagsOf(widget.id);
     final msgs = messages;
-    return AppPage(
-      title: conv.title,
-      actions: [
-        IconButton(
-          tooltip: conv.starred ? '별표 빼기' : '별표 달기',
-          iconSize: 34,
-          onPressed: () {
-            s.store.setStarred(conv.id, !conv.starred);
-            ctl.touch();
-          },
-          icon: Opacity(opacity: conv.starred ? 1 : 0.35, child: Image.asset(AppIcons3d.star, width: 34, height: 34)),
+    final starButton = [
+      IconButton(
+        tooltip: conv.starred ? '별표 빼기' : '별표 달기',
+        iconSize: 34,
+        onPressed: () {
+          s.store.setStarred(conv.id, !conv.starred);
+          ctl.touch();
+        },
+        icon: Opacity(opacity: conv.starred ? 1 : 0.35, child: Image.asset(AppIcons3d.star, width: 34, height: 34)),
+      ),
+    ];
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            SourceBadge(conv.source),
+            Text(dateTimeText.format(conv.createdAt), style: tt.bodySmall),
+            Text('메시지 ${conv.messageCount}개', style: tt.bodySmall),
+          ],
         ),
+        if (conv.summary != null) ...[
+          const SizedBox(height: AppSize.gapS),
+          Container(
+            padding: const EdgeInsets.all(AppSize.gapM),
+            decoration: BoxDecoration(color: p.surfaceAlt, borderRadius: BorderRadius.circular(AppSize.radius)),
+            child: Text('요약: ${conv.summary}', style: tt.bodyLarge),
+          ),
+        ],
+        const SizedBox(height: AppSize.gapM),
+        // 주제·태그
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text('주제', style: tt.titleMedium),
+            for (final t in topics)
+              InputChip(label: Text(t.name), onDeleted: () => _removeTopic(t), deleteButtonTooltipMessage: '이 주제에서 빼기'),
+            ActionChip(avatar: const Icon(Icons.drive_file_move_rounded), label: const Text('주제 바꾸기'), onPressed: _changeTopic),
+          ],
+        ),
+        const SizedBox(height: AppSize.gapS),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text('태그', style: tt.titleMedium),
+            for (final t in tags)
+              InputChip(
+                label: Text('#$t'),
+                onDeleted: () {
+                  s.store.removeTag(conv.id, t);
+                  ctl.touch();
+                },
+                deleteButtonTooltipMessage: '태그 빼기',
+              ),
+            ActionChip(avatar: const Icon(Icons.sell_rounded), label: const Text('태그 붙이기'), onPressed: _addTag),
+          ],
+        ),
+        const SizedBox(height: AppSize.gapM),
+        Wrap(
+          spacing: AppSize.gapS,
+          runSpacing: AppSize.gapS,
+          children: [
+            BigButton(label: '읽어주기', image: AppIcons3d.speaker, expand: false, onPressed: _readAll),
+            BigButton(
+              label: '그만 읽기',
+              icon: Icons.stop_rounded,
+              expand: false,
+              kind: ButtonKind.quiet,
+              onPressed: () => ctl.voice.stopSpeaking(),
+            ),
+            BigButton(label: '메모 남기기', image: AppIcons3d.memo, expand: false, kind: ButtonKind.accent, onPressed: _addNote),
+            if (ctl.voice.canListen)
+              BigButton(label: '말로 메모', image: AppIcons3d.mic, expand: false, kind: ButtonKind.accent, onPressed: _voiceNote),
+            if (conv.link != null)
+              BigButton(
+                label: '원본으로 가기',
+                icon: Icons.open_in_new_rounded,
+                expand: false,
+                kind: ButtonKind.primary,
+                onPressed: () => openLink(context, conv.link!),
+              ),
+          ],
+        ),
+        const SizedBox(height: AppSize.gapM),
+        Text('이 대화 내보내기', style: tt.titleMedium),
+        const SizedBox(height: AppSize.gapS),
+        Wrap(
+          spacing: AppSize.gapS,
+          runSpacing: AppSize.gapS,
+          children: [
+            BigButton(
+              label: '마크다운',
+              icon: Icons.description_rounded,
+              expand: false,
+              kind: ButtonKind.info,
+              onPressed: () => _export(conv, ExportFormat.markdown),
+            ),
+            BigButton(
+              label: 'PDF',
+              icon: Icons.picture_as_pdf_rounded,
+              expand: false,
+              kind: ButtonKind.info,
+              onPressed: () => _export(conv, ExportFormat.pdf),
+            ),
+            BigButton(
+              label: '텍스트',
+              icon: Icons.text_snippet_rounded,
+              expand: false,
+              kind: ButtonKind.info,
+              onPressed: () => _export(conv, ExportFormat.text),
+            ),
+          ],
+        ),
+        if (conv.link == null) ...[
+          const SizedBox(height: AppSize.gapS),
+          const StatusBadge(kind: StatusKind.check, text: '제미나이 기록은 원래 대화로 가는 링크가 없어서 날짜와 제목만 보여드려요.'),
+        ],
+        const SizedBox(height: AppSize.gapL),
+        const TipBubble(id: 'conversation-voice', text: '말로 명령할 수 있어요: "앱 만들기 주제로 옮겨", "메모 다음 주에 다시 보기", "읽어 줘"'),
+        VoiceTextField(hint: '말이나 글로 명령하기', submitLabel: '실행', onSubmit: _command),
+        const SizedBox(height: AppSize.gapL),
+        if (notes.isNotEmpty) ...[
+          SectionCard(
+            title: '내 메모',
+            image: AppIcons3d.memo,
+            children: [
+              for (final n in notes)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      Icon(n.byVoice ? Icons.mic_rounded : Icons.edit_note_rounded, color: p.textMuted),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text('${n.text}\n${dateTimeText.format(n.createdAt)}', style: tt.bodyLarge)),
+                      IconButton(
+                        tooltip: '메모 지우기',
+                        icon: Icon(Icons.delete_rounded, color: p.danger),
+                        onPressed: () async {
+                          if (await confirmOnce(context, title: '메모를 지울까요?', message: n.text, confirmLabel: '지울게요', danger: true)) {
+                            s.store.deleteNote(n.id);
+                            await _reloadNotes();
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSize.gapL),
+        ],
+        Text('대화 내용', style: tt.titleLarge),
+        const SizedBox(height: AppSize.gapS),
+        if (failed)
+          const EmptyState(mood: MascotMood.warning, title: '내용을 열지 못했어요', message: '설정 > 문제 신고로 알려 주세요.')
+        else if (msgs == null)
+          const Center(
+            child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()),
+          )
+        else if (msgs.isEmpty)
+          const EmptyState(mood: MascotMood.warning, title: '내용이 비어 있어요', message: '내보내기 파일에 이 대화의 내용이 없었어요.')
+        else ...[
+          if (start > 0)
+            BigButton(
+              label: '앞부분 더 보기 ($start개)',
+              icon: Icons.expand_less_rounded,
+              kind: ButtonKind.quiet,
+              onPressed: () => setState(() => start = (start - pageSize).clamp(0, start)),
+            ),
+          const SizedBox(height: AppSize.gapS),
+          for (var i = start; i < end; i++) _Bubble(m: msgs[i], source: conv.source, highlight: widget.highlight),
+          if (end < msgs.length)
+            BigButton(
+              label: '더 보기 (${msgs.length - end}개 남음)',
+              icon: Icons.expand_more_rounded,
+              kind: ButtonKind.primary,
+              onPressed: () => setState(() => end = (end + pageSize).clamp(0, msgs.length)),
+            ),
+        ],
+        if (related.isNotEmpty) ...[
+          const SizedBox(height: AppSize.gapXl),
+          SectionCard(
+            title: '이 주제와 관련된 지난 대화',
+            image: AppIcons3d.books,
+            children: [
+              for (final r in related) ...[
+                ConversationTile(
+                  c: r,
+                  onOpen: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ConversationScreen(id: r.id))),
+                ),
+                const SizedBox(height: AppSize.gapS),
+              ],
+            ],
+          ),
+        ],
+        const SizedBox(height: AppSize.gapXl),
+        BigButton(label: '이 대화를 앱에서 지우기', icon: Icons.delete_forever_rounded, kind: ButtonKind.danger, onPressed: _delete),
       ],
-      body: Column(
+    );
+    if (!widget.embedded) return AppPage(title: conv.title, actions: starButton, body: body);
+    // 넓은 화면의 오른쪽 칸
+    return Material(
+      color: p.background,
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              SourceBadge(conv.source),
-              Text(dateTimeText.format(conv.createdAt), style: tt.bodySmall),
-              Text('메시지 ${conv.messageCount}개', style: tt.bodySmall),
-            ],
-          ),
-          if (conv.summary != null) ...[
-            const SizedBox(height: AppSize.gapS),
-            Container(
-              padding: const EdgeInsets.all(AppSize.gapM),
-              decoration: BoxDecoration(color: p.surfaceAlt, borderRadius: BorderRadius.circular(AppSize.radius)),
-              child: Text('요약: ${conv.summary}', style: tt.bodyLarge),
-            ),
-          ],
-          const SizedBox(height: AppSize.gapM),
-          // 주제·태그
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Text('주제', style: tt.titleMedium),
-              for (final t in topics)
-                InputChip(label: Text(t.name), onDeleted: () => _removeTopic(t), deleteButtonTooltipMessage: '이 주제에서 빼기'),
-              ActionChip(avatar: const Icon(Icons.drive_file_move_rounded), label: const Text('주제 바꾸기'), onPressed: _changeTopic),
-            ],
-          ),
-          const SizedBox(height: AppSize.gapS),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Text('태그', style: tt.titleMedium),
-              for (final t in tags)
-                InputChip(
-                  label: Text('#$t'),
-                  onDeleted: () {
-                    s.store.removeTag(conv.id, t);
-                    ctl.touch();
-                  },
-                  deleteButtonTooltipMessage: '태그 빼기',
-                ),
-              ActionChip(avatar: const Icon(Icons.sell_rounded), label: const Text('태그 붙이기'), onPressed: _addTag),
-            ],
-          ),
-          const SizedBox(height: AppSize.gapM),
-          Wrap(
-            spacing: AppSize.gapS,
-            runSpacing: AppSize.gapS,
-            children: [
-              BigButton(label: '읽어주기', image: AppIcons3d.speaker, expand: false, onPressed: _readAll),
-              BigButton(
-                label: '그만 읽기',
-                icon: Icons.stop_rounded,
-                expand: false,
-                kind: ButtonKind.quiet,
-                onPressed: () => ctl.voice.stopSpeaking(),
-              ),
-              BigButton(label: '메모 남기기', image: AppIcons3d.memo, expand: false, kind: ButtonKind.accent, onPressed: _addNote),
-              if (ctl.voice.canListen)
-                BigButton(label: '말로 메모', image: AppIcons3d.mic, expand: false, kind: ButtonKind.accent, onPressed: _voiceNote),
-              BigButton(label: '내보내기', icon: Icons.ios_share_rounded, expand: false, kind: ButtonKind.info, onPressed: () => _export(conv)),
-              if (conv.link != null)
-                BigButton(
-                  label: '원래 대화 열기',
-                  icon: Icons.open_in_new_rounded,
-                  expand: false,
-                  kind: ButtonKind.primary,
-                  onPressed: () => openLink(context, conv.link!),
-                ),
-            ],
-          ),
-          if (conv.link == null) ...[
-            const SizedBox(height: AppSize.gapS),
-            const StatusBadge(kind: StatusKind.check, text: '제미나이 기록은 원래 대화로 가는 링크가 없어서 날짜와 제목만 보여드려요.'),
-          ],
-          const SizedBox(height: AppSize.gapL),
-          const TipBubble(id: 'conversation-voice', text: '말로 명령할 수 있어요: "앱 만들기 주제로 옮겨", "메모 다음 주에 다시 보기", "읽어 줘"'),
-          VoiceTextField(hint: '말이나 글로 명령하기', submitLabel: '실행', onSubmit: _command),
-          const SizedBox(height: AppSize.gapL),
-          if (notes.isNotEmpty) ...[
-            SectionCard(
-              title: '내 메모',
-              image: AppIcons3d.memo,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(AppSize.pagePadding, AppSize.gapM, AppSize.gapS, 0),
+            child: Row(
               children: [
-                for (final n in notes)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      children: [
-                        Icon(n.byVoice ? Icons.mic_rounded : Icons.edit_note_rounded, color: p.textMuted),
-                        const SizedBox(width: 8),
-                        Expanded(child: Text('${n.text}\n${dateTimeText.format(n.createdAt)}', style: tt.bodyLarge)),
-                        IconButton(
-                          tooltip: '메모 지우기',
-                          icon: Icon(Icons.delete_rounded, color: p.danger),
-                          onPressed: () async {
-                            if (await confirmOnce(context, title: '메모를 지울까요?', message: n.text, confirmLabel: '지울게요', danger: true)) {
-                              s.store.deleteNote(n.id);
-                              await _reloadNotes();
-                            }
-                          },
-                        ),
-                      ],
-                    ),
+                Expanded(
+                  child: Semantics(
+                    header: true,
+                    child: Text(conv.title, style: tt.titleLarge, maxLines: 2, overflow: TextOverflow.ellipsis),
                   ),
+                ),
+                ...starButton,
               ],
             ),
-            const SizedBox(height: AppSize.gapL),
-          ],
-          Text('대화 내용', style: tt.titleLarge),
-          const SizedBox(height: AppSize.gapS),
-          if (failed)
-            const EmptyState(mood: MascotMood.warning, title: '내용을 열지 못했어요', message: '설정 > 문제 신고로 알려 주세요.')
-          else if (msgs == null)
-            const Center(
-              child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()),
-            )
-          else if (msgs.isEmpty)
-            const EmptyState(mood: MascotMood.warning, title: '내용이 비어 있어요', message: '내보내기 파일에 이 대화의 내용이 없었어요.')
-          else ...[
-            if (start > 0)
-              BigButton(
-                label: '앞부분 더 보기 ($start개)',
-                icon: Icons.expand_less_rounded,
-                kind: ButtonKind.quiet,
-                onPressed: () => setState(() => start = (start - pageSize).clamp(0, start)),
-              ),
-            const SizedBox(height: AppSize.gapS),
-            for (var i = start; i < end; i++) _Bubble(m: msgs[i], source: conv.source, highlight: widget.highlight),
-            if (end < msgs.length)
-              BigButton(
-                label: '더 보기 (${msgs.length - end}개 남음)',
-                icon: Icons.expand_more_rounded,
-                kind: ButtonKind.primary,
-                onPressed: () => setState(() => end = (end + pageSize).clamp(0, msgs.length)),
-              ),
-          ],
-          if (related.isNotEmpty) ...[
-            const SizedBox(height: AppSize.gapXl),
-            SectionCard(
-              title: '이 주제와 관련된 지난 대화',
-              image: AppIcons3d.books,
-              children: [
-                for (final r in related) ...[
-                  ConversationTile(
-                    c: r,
-                    onOpen: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ConversationScreen(id: r.id))),
-                  ),
-                  const SizedBox(height: AppSize.gapS),
-                ],
-              ],
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              key: PageStorageKey<String>('conv-${widget.id}'),
+              padding: const EdgeInsets.fromLTRB(AppSize.pagePadding, AppSize.gapS, AppSize.pagePadding, AppSize.gapXxl),
+              child: body,
             ),
-          ],
-          const SizedBox(height: AppSize.gapXl),
-          BigButton(label: '이 대화를 앱에서 지우기', icon: Icons.delete_forever_rounded, kind: ButtonKind.danger, onPressed: _delete),
+          ),
         ],
       ),
     );

@@ -127,6 +127,7 @@ void main() {
         'lib/data/key_store.dart', // 키 대체 파일
         'lib/ui/widgets/file_actions.dart', // 임시 폴더에 공유용 새 파일
         'lib/services/app_controller.dart', // 사용자 폴더 안 backups의 오래된 업데이트 전 백업 정리
+        'lib/ui/screens/customize_screen.dart', // 사용자가 고른 사진의 복사본을 앱 자기 폴더에(원본은 그대로)
         'lib/services/update_service.dart', // 업데이트: 임시 폴더에 내려받기, 앱 자신의 실행 파일만 교체
       };
       final pattern = RegExp(
@@ -149,7 +150,7 @@ void main() {
     test('화면 문구는 한국어(영문 문장 없음)', () {
       // 따옴표 안 글자 중 화면에 보일 만한 것만 검사(경로·코드 이름·주소는 제외)
       final literal = RegExp(r"'([^'\\]*(?:\\.[^'\\]*)*)'");
-      final allowWords = RegExp(r'^(GPT|PDF|md|txt|pdf|zip|json|html|AI|OS|MIT|SIL)$');
+      final allowWords = RegExp(r'^(GPT|PDF|md|txt|pdf|zip|json|html|AI|OS|MIT|SIL|API|OAuth|ID|JSON|ico|png)$');
       final problems = <String>[];
       for (final f in files.where((f) => f.path.contains('lib/ui/'))) {
         for (final m in literal.allMatches(f.readAsStringSync())) {

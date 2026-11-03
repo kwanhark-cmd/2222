@@ -1,6 +1,8 @@
 package com.aichatorganizer.ai_chat_organizer
 
+import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.OpenableColumns
@@ -31,6 +33,30 @@ class MainActivity : FlutterActivity() {
             }
         }
         pendingPath = copySharedFile(intent)
+        // 앱 꾸미기: 홈 화면 아이콘·이름 바꾸기(미리 준비한 별칭 중 하나만 켬)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "aico/launcher").setMethodCallHandler { call, result ->
+            if (call.method == "setAlias") {
+                val chosen = call.arguments as String
+                val aliases = listOf("LauncherDefault", "LauncherSpeech", "LauncherBooks")
+                if (chosen !in aliases) {
+                    result.error("alias", "unknown alias", null)
+                    return@setMethodCallHandler
+                }
+                try {
+                    // 새 것을 먼저 켜고 나머지를 꺼서 아이콘이 사라지는 순간이 없게
+                    val ordered = listOf(chosen) + aliases.filter { it != chosen }
+                    for (a in ordered) {
+                        val state = if (a == chosen) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                        packageManager.setComponentEnabledSetting(ComponentName(this, "$packageName.$a"), state, PackageManager.DONT_KILL_APP)
+                    }
+                    result.success(true)
+                } catch (e: Exception) {
+                    result.error("alias", e.message, null)
+                }
+            } else {
+                result.notImplemented()
+            }
+        }
         // 업데이트: 내려받은 APK의 설치 화면 열기(설치는 사용자가 확인)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "aico/update").setMethodCallHandler { call, result ->
             if (call.method == "installApk") {

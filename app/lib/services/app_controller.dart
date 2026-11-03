@@ -4,6 +4,7 @@ import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:http/http.dart' as http;
 
 import '../classify/ai_provider.dart';
 import '../classify/classification_service.dart';
@@ -16,7 +17,9 @@ import '../models/models.dart';
 import '../parsers/import_reader.dart';
 import '../parsers/parser_common.dart';
 import '../voice/voice_service.dart';
+import 'app_identity.dart';
 import 'backup_service.dart';
+import 'gmail_service.dart';
 import 'settings.dart';
 import 'update_service.dart';
 import 'user_service.dart';
@@ -39,6 +42,9 @@ class Job {
   int total = 0;
   String? message;
   String? problemHint;
+  String? stage; // 실패한 단계: 파일 열기/형식 판별/파싱/저장/AI 호출
+  UnreadableKind? unreadable;
+  bool emptyFile = false;
   ImportSummary? importSummary;
   ClassifyOutcome? classifyOutcome;
   final CancelToken cancel = CancelToken();
@@ -125,7 +131,15 @@ class AppController extends ChangeNotifier {
         ss.saveSettings();
       }
       applySampleVisibility();
+      apiKeyPresent = await hasApiKey();
       // 하루 한 번 조용히 새 버전 확인(인터넷이 없어도 앱은 그대로)
+      applyIdentity();
+      if (autoUpdateCheck && settings.gmailConnected) {
+        final last = settings.lastGmailCheck;
+        if (last == null || DateTime.now().difference(last) > const Duration(hours: 6)) {
+          unawaited(checkGmail(silent: true).then((_) => notifyListeners(), onError: (_) {}));
+        }
+      }
       if (autoUpdateCheck) unawaited(checkForUpdate(silent: true).then((_) => notifyListeners(), onError: (_) {}));
       fatalError = null;
       AppLog.info('사용자 열기', {'dataVersion': ss.database.version});
@@ -177,6 +191,9 @@ class AppController extends ChangeNotifier {
     return k != null && k.isNotEmpty;
   }
 
+  /// AI 열쇠가 있는지(화면 상태 표시용, 저장 즉시 바뀜).
+  bool apiKeyPresent = false;
+
   Future<void> setApiKey(String? key) async {
     final s = session;
     if (s == null) return;
@@ -185,8 +202,13 @@ class AppController extends ChangeNotifier {
     } else {
       await keys.write(UserSession.apiKeyName(s.user.id), key.trim());
     }
+    apiKeyPresent = await hasApiKey();
     notifyListeners();
   }
+
+  /// 연결 상태 3가지(홈·설정에 따로 표시)
+  bool get aiConnected => settings.aiMode == AiMode.claude && apiKeyPresent && settings.shareConsentGiven;
+  bool get gmailConnected => settings.gmailConnected;
 
   /// 테스트에서 가짜 제공자를 넣을 수 있게 둡니다.
   AiProvider Function(String apiKey)? providerFactory;
@@ -211,9 +233,11 @@ class AppController extends ChangeNotifier {
     Uint8List bytes;
     try {
       bytes = await f.readAsBytes(); // 읽기만 함
-    } catch (e) {
+    } catch (e, st) {
+      AppLog.error('가져오기 실패(단계: 파일 열기)', e, st);
       final j = Job(JobKind.importing, '$name 가져오기')
         ..state = JobState.failed
+        ..stage = '파일 열기'
         ..message = '파일을 열 수 없어요. 다른 곳에 저장된 파일인지 확인해 주세요.';
       job = j;
       notifyListeners();
@@ -248,17 +272,34 @@ class AppController extends ChangeNotifier {
         results = await parse();
       } on UnreadableFileException catch (e) {
         j.state = JobState.failed;
-        j.message = '이 파일은 읽을 수 없어요. 어느 AI에서 받은 파일인지 알려 주세요.';
+        j.stage = '형식 판별';
+        j.unreadable = e.kind;
+        j.message = switch (e.kind) {
+          UnreadableKind.expiredLink => '내려받기 링크가 만료된 것 같아요. 받은 파일이 대화 기록이 아니라 안내 페이지예요. 내보내기를 다시 요청해 주세요.',
+          UnreadableKind.empty => '빈 파일이에요. 내려받기가 끝까지 됐는지 확인하고 다시 받아 주세요.',
+          UnreadableKind.unknown => '이 파일은 읽을 수 없어요. 어느 AI 파일인지 골라 주세요.',
+        };
         j.problemHint = e.hint;
-        AppLog.warn('읽을 수 없는 파일', {'hint': e.hint, 'size': fileName.length});
+        AppLog.error('가져오기 실패(단계: 형식 판별)', e);
         notifyListeners();
         return j;
       } on RemoteError catch (e) {
         // 백그라운드에서 난 오류
         j.state = JobState.failed;
-        j.message = '이 파일은 읽을 수 없어요. 어느 AI에서 받은 파일인지 알려 주세요.';
+        j.stage = '파싱';
+        j.unreadable = UnreadableKind.unknown;
+        j.message = '이 파일은 읽을 수 없어요. 어느 AI 파일인지 골라 주세요.';
         j.problemHint = e.toString().split('\n').first;
-        AppLog.warn('읽을 수 없는 파일(백그라운드)', {'hint': j.problemHint});
+        AppLog.error('가져오기 실패(단계: 파싱)', e);
+        notifyListeners();
+        return j;
+      }
+      if (results.every((r) => r.conversations.isEmpty)) {
+        j.state = JobState.failed;
+        j.stage = '파싱';
+        j.emptyFile = true;
+        j.message = '이 파일에는 가져올 대화가 없어요. 다른 파일이거나 대화가 하나도 없는 계정일 수 있어요.';
+        AppLog.error('가져오기 실패(단계: 파싱) 대화 0개', fileName.length);
         notifyListeners();
         return j;
       }
@@ -284,11 +325,13 @@ class AppController extends ChangeNotifier {
         await s.classifier.classifyOffline(summary.touchedIds, cancel: j.cancel);
       }
       applySampleVisibility();
+      if (!sample && summary.saved > 0) settings.gmailFoundCount = 0;
       j.state = summary.cancelled ? JobState.cancelled : JobState.done;
       j.message = summary.cancelled ? '취소했어요. 지금까지 ${summary.saved}개는 저장됐어요.' : '다 가져왔어요!';
     } catch (e, st) {
-      AppLog.error('가져오기 실패', e, st);
+      AppLog.error('가져오기 실패(단계: 저장)', e, st);
       j.state = JobState.failed;
+      j.stage = '저장';
       j.message = '가져오는 중 문제가 생겼어요. 이미 저장된 대화는 그대로 있어요.';
     }
     touch();
@@ -346,6 +389,8 @@ class AppController extends ChangeNotifier {
       }
       j.classifyOutcome = out;
       if (out.stoppedBy != null) {
+        AppLog.error('정리 실패(단계: AI 호출)', out.stoppedBy!);
+        j.stage = 'AI 호출';
         j.state = JobState.failed;
         j.message = '${out.stoppedBy!.message}\n(${out.done}개는 정리됐어요)';
       } else if (out.cancelled) {
@@ -378,6 +423,68 @@ class AppController extends ChangeNotifier {
         .select('SELECT id FROM conversations c WHERE ${s.store.sampleCond()} ORDER BY created_at DESC')
         .map((r) => r['id'] as int)
         .toList();
+  }
+
+  // ---------- 지메일 ----------
+
+  /// 테스트에서 가짜 서버·브라우저를 넣을 수 있게 둡니다.
+  http.Client? gmailHttpClient;
+  Future<void> Function(Uri url)? openBrowser;
+
+  GmailService gmail() {
+    final s = session!;
+    return GmailService(
+      keys: keys,
+      userId: s.user.id,
+      client: gmailHttpClient,
+      openBrowser: openBrowser ?? (u) async => AppLog.warn('브라우저 열기 함수 없음'),
+    );
+  }
+
+  /// 클라이언트 ID·비밀번호 저장 후 브라우저로 연결.
+  Future<void> connectGmail({required String clientId, String? clientSecret}) async {
+    final g = gmail();
+    if (clientSecret != null && clientSecret.trim().isNotEmpty) await g.saveSecret(clientSecret.trim());
+    updateSettings((s) => s.gmailClientId = clientId.trim());
+    await g.connect(clientId: clientId.trim());
+    updateSettings((s) => s.gmailConnected = true);
+    await checkGmail();
+  }
+
+  /// 내보내기 안내 메일 확인 → 마지막으로 대화를 넣은 뒤 온 메일 수를 "오늘 할 일"에 표시.
+  Future<List<ExportMail>> checkGmail({bool silent = false}) async {
+    final s = session;
+    if (s == null || !settings.gmailConnected || settings.gmailClientId == null) return const [];
+    try {
+      final mails = await gmail().recentExportMails(settings.gmailClientId!);
+      final lastImport = s.store.lastImportAt();
+      final fresh = mails.where((m) => lastImport == null || m.receivedAt.isAfter(lastImport)).length;
+      updateSettings((x) {
+        x.lastGmailCheck = DateTime.now();
+        x.gmailFoundCount = fresh;
+      });
+      return mails;
+    } on GmailError catch (e) {
+      AppLog.error('지메일 확인 실패(단계: 지메일 확인)', e);
+      if (e.kind == GmailErrorKind.expired) updateSettings((x) => x.gmailConnected = false);
+      if (!silent) rethrow;
+      return const [];
+    }
+  }
+
+  Future<void> disconnectGmail() async {
+    if (session == null) return;
+    await gmail().disconnect();
+    updateSettings((s) {
+      s.gmailConnected = false;
+      s.gmailFoundCount = 0;
+    });
+  }
+
+  // ---------- 앱 꾸미기 ----------
+
+  void applyIdentity() {
+    AppIdentity.applyName(appName);
   }
 
   // ---------- 업데이트 ----------

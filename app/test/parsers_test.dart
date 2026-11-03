@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:ai_chat_organizer/models/models.dart';
@@ -129,6 +130,78 @@ void main() {
       );
       final emptyZip = Uint8List.fromList(ZipEncoder().encode(Archive()..addFile(ArchiveFile.bytes('a.txt', [1]))));
       expect(() => ImportReader.read('e.zip', emptyZip), throwsA(isA<UnreadableFileException>()));
+    });
+  });
+
+  group('한국어 계정 제미나이 테이크아웃(1.1.0)', () {
+    Uint8List zipOf(Map<String, List<int>> files) {
+      final a = Archive();
+      files.forEach((n, b) => a.addFile(ArchiveFile.bytes(n, b)));
+      return Uint8List.fromList(ZipEncoder().encode(a));
+    }
+
+    final html = File('test/fixtures/gemini_ko_내활동.html').readAsBytesSync();
+    final json = File('test/fixtures/gemini_ko_내활동.json').readAsBytesSync();
+
+    test('한국어 폴더 이름의 HTML을 읽고 한국어 날짜·제목 앞말을 처리', () {
+      final r = ImportReader.read('takeout.zip', zipOf({'Takeout/내 활동/Gemini 앱/내활동.html': html})).single;
+      expect(r.source, AiSource.gemini);
+      expect(r.conversations.length, 2); // 30분 안 질문 2개 묶음 + 따로 1개
+      final kimchi = r.conversations.firstWhere((c) => c.title.contains('김장'));
+      expect(kimchi.title.startsWith('다음 내용으로'), isFalse);
+      expect(kimchi.messages.length, 4);
+      expect(kimchi.createdAt, DateTime(2026, 10, 28, 15, 5, 10));
+    });
+
+    test('HTML과 JSON이 함께 있으면 JSON만 읽어 겹치지 않음, 모르는 항목은 건너뜀', () {
+      final r = ImportReader.read(
+        'takeout.zip',
+        zipOf({
+          'Takeout/내 활동/Gemini 앱/내활동.html': html,
+          'Takeout/내 활동/Gemini 앱/내활동.json': json,
+          'Takeout/보관 파일_브라우저.html': utf8.encode('<html>안내</html>'),
+        }),
+      ).single;
+      expect(r.conversations.length, 2);
+      expect(r.skipped, 2);
+    });
+
+    test('만료된 링크 페이지·빈 파일은 알맞은 안내 종류로', () {
+      expect(
+        () => ImportReader.read(
+          'data.zip',
+          Uint8List.fromList(
+            utf8.encode('<?xml version="1.0"?><Error><Code>AccessDenied</Code><Message>Request has expired</Message></Error>'),
+          ),
+        ),
+        throwsA(isA<UnreadableFileException>().having((e) => e.kind, 'kind', UnreadableKind.expiredLink)),
+      );
+      expect(
+        () => ImportReader.read('x.json', Uint8List(0)),
+        throwsA(isA<UnreadableFileException>().having((e) => e.kind, 'kind', UnreadableKind.empty)),
+      );
+    });
+
+    test('메시지 하나가 깨져도 대화는 가져옴', () {
+      final data = jsonEncode([
+        {
+          'uuid': 'k1',
+          'name': '반쯤 깨진 대화',
+          'chat_messages': [
+            {'sender': 'human', 'text': '정상 질문'},
+            {
+              'sender': 'assistant',
+              'content': [
+                {'type': 'text', 'text': 123},
+              ],
+              'attachments': 'x',
+            },
+            {'sender': 'assistant', 'text': '정상 답변'},
+          ],
+        },
+      ]);
+      final r = ImportReader.read('conversations.json', Uint8List.fromList(utf8.encode(data))).single;
+      expect(r.conversations.single.messages.map((m) => m.text), containsAll(['정상 질문', '정상 답변']));
     });
   });
 }

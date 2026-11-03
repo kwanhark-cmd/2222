@@ -7,11 +7,11 @@ import 'services/settings.dart';
 import 'services/share_intake.dart';
 import 'theme/app_theme.dart';
 import 'theme/tokens.dart';
-import 'ui/screens/home_screen.dart';
 import 'ui/screens/import_screen.dart';
 import 'ui/screens/onboarding_screen.dart';
 import 'ui/screens/profile_screen.dart';
 import 'ui/nav.dart';
+import 'ui/shell.dart';
 import 'ui/widgets/common.dart';
 import 'ui/widgets/dialogs.dart';
 
@@ -42,8 +42,14 @@ class AiChatOrganizerApp extends StatelessWidget {
       child: Consumer<AppController>(
         builder: (context, c, _) {
           final s = c.settings;
-          final light = AppTheme.build(AppPalette.pick(isDark: false, highContrast: s.highContrast), reduceMotion: s.reduceMotion);
-          final dark = AppTheme.build(AppPalette.pick(isDark: true, highContrast: s.highContrast), reduceMotion: s.reduceMotion);
+          final light = AppTheme.build(
+            ColorThemes.apply(AppPalette.pick(isDark: false, highContrast: s.highContrast), s.colorTheme),
+            reduceMotion: s.reduceMotion,
+          );
+          final dark = AppTheme.build(
+            ColorThemes.apply(AppPalette.pick(isDark: true, highContrast: s.highContrast), s.colorTheme),
+            reduceMotion: s.reduceMotion,
+          );
           return MaterialApp(
             title: 'AI 대화 기록 정리 비서',
             debugShowCheckedModeBanner: false,
@@ -123,6 +129,6 @@ class _RootGateState extends State<RootGate> {
       return const ProfileScreen();
     }
     if (!s.settings.onboardingDone) return const OnboardingScreen();
-    return const HomeScreen();
+    return const MainShell();
   }
 }

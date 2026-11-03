@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../services/app_controller.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
+import '../shell.dart';
 import 'common.dart';
 
 /// 모든 화면의 공통 틀: 큰 제목, 같은 자리의 "뒤로"(왼쪽)와 "홈"(오른쪽) 버튼.
@@ -31,9 +32,10 @@ class AppPage extends StatelessWidget {
     final canPop = Navigator.of(context).canPop();
     Widget content = Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: AppSize.maxContentWidth),
+        constraints: BoxConstraints(maxWidth: scroll ? AppSize.maxContentWidth : double.infinity), // 나눈 화면(목록+본문)은 창 전체
         child: scroll
             ? SingleChildScrollView(
+                key: PageStorageKey<String>('page-$title'),
                 padding: const EdgeInsets.fromLTRB(AppSize.pagePadding, AppSize.gapS, AppSize.pagePadding, AppSize.gapXxl),
                 child: body,
               )
@@ -59,7 +61,7 @@ class AppPage extends StatelessWidget {
           if (!isHome)
             Padding(
               padding: const EdgeInsets.only(right: 8),
-              child: _NavButton(icon: Icons.home_rounded, label: '홈', onTap: () => Navigator.of(context).popUntil((r) => r.isFirst)),
+              child: _NavButton(icon: Icons.home_rounded, label: '홈', onTap: ShellNav.goHome),
             ),
         ],
       ),

@@ -34,7 +34,12 @@ class ClaudeParser {
         if (rawMsgs is List) {
           for (final rm in rawMsgs) {
             if (rm is! Map) continue;
-            final m = _message(rm);
+            Message? m;
+            try {
+              m = _message(rm);
+            } catch (_) {
+              continue; // 메시지 하나가 이상해도 대화는 살림
+            }
             if (m != null) msgs.add(m);
           }
         }

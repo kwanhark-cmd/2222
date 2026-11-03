@@ -12,6 +12,7 @@ class AppSize {
   static const gapXs = 4.0;
   static const gapS = 8.0;
   static const gapM = 12.0;
+  static const cardGap = 18.0; // 카드 사이 간격(기본의 1.5배)
   static const gapL = 16.0;
   static const gapXl = 24.0;
   static const gapXxl = 32.0;
@@ -26,6 +27,8 @@ class AppSize {
   static const textSmall = 15.0;
   static const textTitle = 21.0;
   static const textHeadline = 26.0;
+  static const textDisplay = 34.0; // 큰 숫자(토스처럼 크게)
+  static const searchHeight = 68.0; // 홈 검색창 높이
   static const textButton = 18.0;
 }
 
@@ -106,9 +109,9 @@ class AppPalette {
     primaryText: Color(0xFF2F4AA8),
     accent: Color(0xFFB4400F),
     onAccent: Color(0xFFFFFFFF),
-    background: Color(0xFFF3F5FB),
+    background: Color(0xFFECF0F7),
     surface: Color(0xFFFFFFFF),
-    surfaceAlt: Color(0xFFE6EBF7),
+    surfaceAlt: Color(0xFFE2E8F4),
     text: Color(0xFF1A1D24),
     textMuted: Color(0xFF474E60),
     border: Color(0xFFC3CADB),
@@ -122,7 +125,7 @@ class AppPalette {
     onDanger: Color(0xFFFFFFFF),
     shadow: Color(0x33233066),
     highlight: Color(0xFFFFE58A),
-    claude: Color(0xFF9A4A26),
+    claude: Color(0xFFC2410C),
     chatgpt: Color(0xFF0B6E55),
     gemini: Color(0xFF2B57C9),
   );
@@ -134,9 +137,9 @@ class AppPalette {
     primaryText: Color(0xFFA9B9FF),
     accent: Color(0xFFB4400F),
     onAccent: Color(0xFFFFFFFF),
-    background: Color(0xFF101318),
-    surface: Color(0xFF1B1F27),
-    surfaceAlt: Color(0xFF272C38),
+    background: Color(0xFF0E1116),
+    surface: Color(0xFF1F242D),
+    surfaceAlt: Color(0xFF2C323E),
     text: Color(0xFFF1F3F8),
     textMuted: Color(0xFFB9C0D0),
     border: Color(0xFF444B5C),
@@ -150,7 +153,7 @@ class AppPalette {
     onDanger: Color(0xFFFFFFFF),
     shadow: Color(0x99000000),
     highlight: Color(0xFF6B5500),
-    claude: Color(0xFF9A4A26),
+    claude: Color(0xFFC2410C),
     chatgpt: Color(0xFF0B6E55),
     gemini: Color(0xFF2B57C9),
   );
@@ -215,6 +218,35 @@ class AppPalette {
 
   static AppPalette pick({required bool isDark, required bool highContrast}) =>
       highContrast ? (isDark ? highContrastDark : highContrastLight) : (isDark ? dark : light);
+
+  AppPalette copyWithPrimary({required Color primary, required Color primaryText}) => AppPalette(
+    brightness: brightness,
+    primary: primary,
+    onPrimary: onPrimary,
+    primaryText: primaryText,
+    accent: accent,
+    onAccent: onAccent,
+    background: background,
+    surface: surface,
+    surfaceAlt: surfaceAlt,
+    text: text,
+    textMuted: textMuted,
+    border: border,
+    success: success,
+    onSuccess: onSuccess,
+    info: info,
+    onInfo: onInfo,
+    warning: warning,
+    onWarning: onWarning,
+    danger: danger,
+    onDanger: onDanger,
+    shadow: shadow,
+    highlight: highlight,
+    claude: claude,
+    chatgpt: chatgpt,
+    gemini: gemini,
+    borderWidth: borderWidth,
+  );
 
   /// (글자색, 배경색, 이름) — 대비 검사용
   List<(Color, Color, String)> get contrastPairs => [
@@ -317,4 +349,45 @@ class AppIcons3d {
     people,
     party,
   ];
+}
+
+/// 주제마다 다른 색(중간 채도). 점·타일·대화 카드 왼쪽 띠에 씁니다.
+class TopicColors {
+  static const all = [
+    Color(0xFF3B82C4), // 파랑
+    Color(0xFF2E9E6B), // 초록
+    Color(0xFFD9822B), // 주황
+    Color(0xFF8E5CC4), // 보라
+    Color(0xFFD0516E), // 장미
+    Color(0xFF1F9AA6), // 청록
+    Color(0xFFB59A1E), // 겨자
+    Color(0xFF5C6BC0), // 남색
+    Color(0xFF7A8F3A), // 올리브
+    Color(0xFFC0604A), // 벽돌
+  ];
+
+  static Color of(int topicId) => all[topicId.abs() % all.length];
+}
+
+/// 사용자가 고르는 색 테마(주요색만 바뀜, 글자 대비는 모두 4.5:1 이상).
+class ColorThemes {
+  static const names = {'blue': '파랑', 'green': '초록', 'purple': '보라', 'teal': '청록', 'rose': '장미'};
+
+  /// (밝게 버튼색, 어둡게 버튼색, 어둡게 글자색)
+  static const _colors = {
+    'blue': (Color(0xFF2F4AA8), Color(0xFF4A63D1), Color(0xFFA9B9FF)),
+    'green': (Color(0xFF1B6E3A), Color(0xFF237A45), Color(0xFF8FD9A8)),
+    'purple': (Color(0xFF6A3DB8), Color(0xFF7448C4), Color(0xFFCDB5FF)),
+    'teal': (Color(0xFF0F6E78), Color(0xFF137A85), Color(0xFF8ADBE3)),
+    'rose': (Color(0xFFA8325E), Color(0xFFB13A67), Color(0xFFFFB0CB)),
+  };
+
+  static Color sample(String name) => (_colors[name] ?? _colors['blue']!).$1;
+
+  static AppPalette apply(AppPalette base, String name) {
+    final c = _colors[name];
+    if (c == null || name == 'blue' || base.borderWidth > 1) return base; // 고대비는 그대로
+    final dark = base.brightness == Brightness.dark;
+    return base.copyWithPrimary(primary: dark ? c.$2 : c.$1, primaryText: dark ? c.$3 : c.$1);
+  }
 }

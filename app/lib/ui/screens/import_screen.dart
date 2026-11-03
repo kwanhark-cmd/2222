@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
+import '../../parsers/parser_common.dart';
 import '../../services/app_controller.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
@@ -14,7 +15,6 @@ import '../widgets/dialogs.dart';
 import '../widgets/file_actions.dart';
 import '../widgets/page.dart';
 import 'export_guide_screen.dart';
-import 'problem_report_screen.dart';
 import 'topics_screen.dart';
 
 bool get isDesktop => Platform.isWindows || Platform.isMacOS || Platform.isLinux;
@@ -71,9 +71,9 @@ class _ImportScreenState extends State<ImportScreen> {
     await _importBytes(f.$1, f.$2);
   }
 
-  Future<void> _retryWithHint() async {
-    final src = await pickOne<AiSource>(context, title: '어느 AI에서 받은 파일인가요?', options: [for (final a in AiSource.values) (a, a.label)]);
-    if (src == null || lastBytes == null) return;
+  /// "어느 AI 파일인지 골라 주세요"에서 고른 AI로 다시 읽기.
+  Future<void> _retryWithHint(AiSource src) async {
+    if (!mounted || lastBytes == null) return;
     await _importBytes(lastName ?? '파일', lastBytes!, hint: src);
   }
 
@@ -170,7 +170,7 @@ class _ImportScreenState extends State<ImportScreen> {
 
 class _ResultCard extends StatelessWidget {
   final Job job;
-  final VoidCallback onRetryWithHint;
+  final void Function(AiSource) onRetryWithHint;
   const _ResultCard({required this.job, required this.onRetryWithHint});
 
   @override
@@ -214,14 +214,33 @@ class _ResultCard extends StatelessWidget {
         ],
         if (failed) ...[
           const SizedBox(height: AppSize.gapM),
-          if (job.problemHint != null)
-            BigButton(label: '어느 AI 파일인지 알려 주기', icon: Icons.help_rounded, kind: ButtonKind.accent, onPressed: onRetryWithHint),
-          const SizedBox(height: AppSize.gapS),
+          if (job.unreadable == UnreadableKind.unknown) ...[
+            Text('어느 AI 파일인지 골라 주세요', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: AppSize.gapS),
+            for (final a in AiSource.values) ...[
+              BigButton(
+                label: '${a.label} 파일이에요',
+                icon: SourceBadge.iconOf(a),
+                kind: ButtonKind.primary,
+                onPressed: () => onRetryWithHint(a),
+              ),
+              const SizedBox(height: AppSize.gapS),
+            ],
+          ],
+          if (job.unreadable == UnreadableKind.expiredLink || job.unreadable == UnreadableKind.empty || job.emptyFile) ...[
+            BigButton(
+              label: '내보내기 다시 받는 법',
+              image: AppIcons3d.books,
+              kind: ButtonKind.accent,
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ExportGuideScreen())),
+            ),
+            const SizedBox(height: AppSize.gapS),
+          ],
           BigButton(
             label: '문제 신고',
             icon: Icons.flag_rounded,
             kind: ButtonKind.danger,
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProblemReportScreen(extra: job.problemHint))),
+            onPressed: () => openProblemReport(context, extra: '단계: ${job.stage ?? '-'} / ${job.problemHint ?? ''}'),
           ),
         ],
       ],

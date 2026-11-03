@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'app.dart';
 import 'core/app_log.dart';
@@ -39,6 +40,10 @@ Future<void> main() async {
       });
 
       final controller = AppController(root: root, keys: SecureKeyStore(File('${root.path}/.keys')), voice: DeviceVoiceService());
+      // 지메일 연결 때 브라우저 열기
+      controller.openBrowser = (u) async {
+        await launchUrl(u, mode: LaunchMode.externalApplication);
+      };
       runApp(AiChatOrganizerApp(controller: controller));
       await controller.init();
     },

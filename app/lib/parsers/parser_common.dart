@@ -11,9 +11,12 @@ class ParseResult {
 }
 
 /// 파일을 전혀 읽을 수 없을 때. [hint]에는 대화 내용이 아닌 구조 정보만 담습니다.
+enum UnreadableKind { unknown, expiredLink, empty }
+
 class UnreadableFileException implements Exception {
   final String hint;
-  const UnreadableFileException(this.hint);
+  final UnreadableKind kind;
+  const UnreadableFileException(this.hint, {this.kind = UnreadableKind.unknown});
   @override
   String toString() => 'UnreadableFileException($hint)';
 }

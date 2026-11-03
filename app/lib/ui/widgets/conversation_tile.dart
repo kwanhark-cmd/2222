@@ -12,53 +12,96 @@ import 'dialogs.dart';
 final dateText = DateFormat('yyyy년 M월 d일');
 final dateTimeText = DateFormat('yyyy년 M월 d일 HH:mm');
 
-/// 긴 목록용 가벼운 평면 카드(그림자 없음 → 스크롤이 끊기지 않게).
+/// 대화 카드: 제목 1줄(굵게) + 요약 2줄 + 날짜·AI 배지, 별표는 오른쪽 위, 왼쪽에 주제 색 띠.
+/// 긴 목록용이라 그림자 없는 가벼운 평면 카드(배경색은 채움)입니다.
 class ConversationTile extends StatelessWidget {
   final ConversationSummary c;
   final String? snippet;
   final List<String> highlight;
   final VoidCallback onOpen;
   final Widget? leading;
+  final bool selected;
+  final bool showReadAloud;
 
-  const ConversationTile({super.key, required this.c, required this.onOpen, this.snippet, this.highlight = const [], this.leading});
+  const ConversationTile({
+    super.key,
+    required this.c,
+    required this.onOpen,
+    this.snippet,
+    this.highlight = const [],
+    this.leading,
+    this.selected = false,
+    this.showReadAloud = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final p = AppTheme.of(context).palette;
     final tt = Theme.of(context).textTheme;
     final controller = context.read<AppController>();
-    final preview = snippet ?? c.summary;
-    return Container(
-      decoration: BoxDecoration(
-        color: p.surface,
-        borderRadius: BorderRadius.circular(AppSize.radius),
-        border: Border.all(color: p.border, width: p.borderWidth),
-      ),
-      clipBehavior: Clip.antiAlias,
+    final preview = (snippet != null && snippet!.isNotEmpty) ? snippet : c.summary;
+    final topics = controller.session?.topics.topicsOf(c.id) ?? const <Topic>[];
+    final stripe = topics.isNotEmpty ? TopicColors.of(topics.first.id) : SourceBadge.colorOf(p, c.source);
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '${c.source.label} 대화, ${c.title}${c.starred ? ', 별표' : ''}',
       child: Material(
-        type: MaterialType.transparency,
+        color: selected ? Color.lerp(p.surface, p.primary, 0.12) : p.surface,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSize.radius),
+          side: p.borderWidth > 1 ? BorderSide(color: p.border, width: p.borderWidth) : BorderSide.none,
+        ),
         child: InkWell(
           onTap: onOpen,
           child: IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(width: 6, color: SourceBadge.colorOf(p, c.source)),
+                Container(width: 6, color: stripe),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.all(AppSize.gapM),
+                    padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ?leading,
+                            Expanded(
+                              child: HighlightText(
+                                c.title,
+                                words: highlight,
+                                style: tt.titleMedium!.copyWith(fontWeight: FontWeight.w800),
+                                maxLines: 1,
+                              ),
+                            ),
+                            if (c.starred) ...[
+                              const SizedBox(width: 6),
+                              Image.asset(AppIcons3d.star, width: 24, height: 24, semanticLabel: '별표'),
+                            ],
+                          ],
+                        ),
+                        if (preview != null && preview.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          HighlightText(
+                            preview,
+                            words: highlight,
+                            style: tt.bodyMedium!.copyWith(color: p.textMuted),
+                            maxLines: 2,
+                          ),
+                        ],
+                        const SizedBox(height: 8),
                         Wrap(
                           spacing: 8,
                           runSpacing: 6,
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            ?leading,
-                            SourceBadge(c.source, small: true),
                             Text(dateText.format(c.createdAt), style: tt.bodySmall),
-                            if (c.starred) Image.asset(AppIcons3d.star, width: 22, height: 22, semanticLabel: '별표'),
+                            SourceBadge(c.source, small: true),
+                            for (final t in topics.take(2)) TopicChip(t, small: true),
                             if (c.hasAttachments)
                               Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -67,38 +110,13 @@ class ConversationTile extends StatelessWidget {
                                   Text('첨부', style: tt.bodySmall),
                                 ],
                               ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        HighlightText(c.title, words: highlight, style: tt.titleMedium, maxLines: 2),
-                        if (preview != null && preview.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          HighlightText(
-                            preview,
-                            words: highlight,
-                            style: tt.bodyMedium!.copyWith(color: p.textMuted),
-                            maxLines: 3,
-                          ),
-                        ],
-                        const SizedBox(height: AppSize.gapS),
-                        Wrap(
-                          spacing: AppSize.gapS,
-                          runSpacing: AppSize.gapS,
-                          children: [
-                            BigButton(
-                              label: '전체 보기',
-                              icon: Icons.article_rounded,
-                              expand: false,
-                              kind: ButtonKind.primary,
-                              onPressed: onOpen,
-                            ),
-                            if (preview != null && preview.isNotEmpty)
-                              BigButton(
-                                label: '읽어주기',
-                                image: AppIcons3d.speaker,
-                                expand: false,
-                                kind: ButtonKind.quiet,
+                            if (showReadAloud && preview != null && preview.isNotEmpty)
+                              IconButton(
+                                tooltip: '읽어주기',
+                                visualDensity: VisualDensity.compact,
+                                constraints: const BoxConstraints(minWidth: AppSize.minTouch, minHeight: AppSize.minTouch),
                                 onPressed: () => readAloud(context, controller, '${c.title}. $preview'),
+                                icon: Image.asset(AppIcons3d.speaker, width: 26, height: 26, excludeFromSemantics: true),
                               ),
                           ],
                         ),
@@ -110,6 +128,37 @@ class ConversationTile extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 주제 이름 + 주제 색 점.
+class TopicChip extends StatelessWidget {
+  final Topic topic;
+  final bool small;
+  const TopicChip(this.topic, {super.key, this.small = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppTheme.of(context).palette;
+    final color = TopicColors.of(topic.id);
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: small ? 8 : 10, vertical: small ? 3 : 5),
+      decoration: BoxDecoration(color: Color.lerp(p.surface, color, 0.16), borderRadius: BorderRadius.circular(AppSize.radiusSmall)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(topic.name, style: Theme.of(context).textTheme.labelMedium, overflow: TextOverflow.ellipsis),
+          ),
+        ],
       ),
     );
   }

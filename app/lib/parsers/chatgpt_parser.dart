@@ -67,7 +67,12 @@ class ChatGptParser {
       final n = mapping[nid] as Map;
       final m = n['message'];
       if (m is! Map) continue;
-      final parsed = _message(m);
+      Message? parsed;
+      try {
+        parsed = _message(m);
+      } catch (_) {
+        continue; // 메시지 하나가 이상해도 대화는 살림
+      }
       if (parsed != null) msgs.add(parsed);
     }
     return msgs;

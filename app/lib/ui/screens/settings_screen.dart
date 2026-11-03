@@ -14,14 +14,18 @@ import '../widgets/conversation_tile.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/file_actions.dart';
 import '../widgets/page.dart';
+import '../widgets/status_strip.dart';
 import '../widgets/update_card.dart';
 import 'export_guide_screen.dart';
 import 'licenses_screen.dart';
-import 'problem_report_screen.dart';
+import 'customize_screen.dart';
+import 'gmail_setup_screen.dart';
+import 'import_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final bool focusAi;
-  const SettingsScreen({super.key, this.focusAi = false});
+  final bool asTab;
+  const SettingsScreen({super.key, this.focusAi = false, this.asTab = false});
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
@@ -55,99 +59,72 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final p = AppTheme.of(context).palette;
     final session = c.session!;
     void set(void Function(AppSettings) f) => c.updateSettings(f);
-    const gap = SizedBox(height: AppSize.gapL);
+    const gap = SizedBox(height: AppSize.cardGap);
 
     return AppPage(
       title: '설정',
+      isHome: widget.asTab,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const UpdateCard(),
           gap,
-          // ---------- 보기 ----------
+          // ---------- 상태 ----------
           SectionCard(
-            title: '보기',
-            image: AppIcons3d.bulb,
+            title: '지금 상태',
+            image: AppIcons3d.check,
             children: [
-              Text('글씨 크기', style: tt.titleMedium),
-              const SizedBox(height: AppSize.gapS),
-              Wrap(
-                spacing: AppSize.gapS,
-                runSpacing: AppSize.gapS,
-                children: [
-                  for (final f in FontSize.values)
-                    ChoiceChip(label: Text(f.label), selected: s.fontSize == f, onSelected: (_) => set((x) => x.fontSize = f)),
-                ],
+              StatusStrip(
+                onTapAi: () {
+                  final ctx = aiKey.currentContext;
+                  if (ctx != null) Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 300));
+                },
+                onTapGmail: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GmailSetupScreen())),
               ),
-              const SizedBox(height: AppSize.gapM),
-              Text('화면 밝기', style: tt.titleMedium),
-              const SizedBox(height: AppSize.gapS),
-              Wrap(
-                spacing: AppSize.gapS,
-                runSpacing: AppSize.gapS,
-                children: [
-                  for (final t in ThemeChoice.values)
-                    ChoiceChip(label: Text(t.label), selected: s.theme == t, onSelected: (_) => set((x) => x.theme = t)),
-                ],
-              ),
-              const SizedBox(height: AppSize.gapS),
-              SwitchRow(
-                title: '고대비(아주 또렷하게)',
-                subtitle: '글자와 테두리를 더 진하게 보여줘요',
-                value: s.highContrast,
-                onChanged: (v) => set((x) => x.highContrast = v),
-              ),
-              SwitchRow(
-                title: '움직임 줄이기',
-                subtitle: '화면 움직임 효과를 꺼요',
-                value: s.reduceMotion,
-                onChanged: (v) => set((x) => x.reduceMotion = v),
-              ),
-              SwitchRow(title: '누를 때 진동', value: s.haptics, onChanged: (v) => set((x) => x.haptics = v)),
-              SwitchRow(title: '누를 때 소리', value: s.sounds, onChanged: (v) => set((x) => x.sounds = v)),
             ],
           ),
           gap,
-          // ---------- 음성 ----------
+          // ---------- 내보내기 알림·지메일 ----------
           SectionCard(
-            title: '음성',
-            image: AppIcons3d.mic,
+            title: '대화 넣기',
+            image: AppIcons3d.inbox,
             children: [
-              if (!c.voice.canListen) const StatusBadge(kind: StatusKind.check, text: '이 기기에서는 음성 인식을 쓸 수 없어 글자 입력칸을 보여드려요.'),
-              SwitchRow(title: '읽어주기 켜기', value: s.ttsEnabled, onChanged: (v) => set((x) => x.ttsEnabled = v)),
-              Text(
-                '읽는 속도: ${s.ttsRate <= 0.35
-                    ? '느리게'
-                    : s.ttsRate >= 0.65
-                    ? '빠르게'
-                    : '보통'}',
-                style: tt.titleMedium,
-              ),
-              Slider(value: s.ttsRate, min: 0.2, max: 0.9, divisions: 7, label: '속도', onChanged: (v) => set((x) => x.ttsRate = v)),
               BigButton(
-                label: '읽기 시험해 보기',
-                image: AppIcons3d.speaker,
-                kind: ButtonKind.quiet,
-                onPressed: () => readAloud(context, c, '안녕하세요. 이 속도로 읽어 드릴게요.'),
+                label: '대화 기록 파일 넣기',
+                icon: Icons.file_open_rounded,
+                kind: ButtonKind.accent,
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ImportScreen())),
               ),
-              const SizedBox(height: AppSize.gapM),
-              Text('음성 엔진', style: tt.titleMedium),
               const SizedBox(height: AppSize.gapS),
-              Wrap(
-                spacing: AppSize.gapS,
-                runSpacing: AppSize.gapS,
-                children: [
-                  ChoiceChip(
-                    label: const Text('기기 내장(무료)'),
-                    selected: s.voiceEngine == 'device',
-                    onSelected: (_) => set((x) => x.voiceEngine = 'device'),
+              SwitchRow(
+                title: '샘플 대화 보기',
+                subtitle: c.session!.store.realCount() > 0 ? '실제 대화가 있어서 샘플은 숨겨 두었어요' : '처음 체험용으로 넣은 대화예요',
+                value: s.showSamples || c.session!.store.realCount() == 0,
+                onChanged: (v) => set((x) => x.showSamples = v),
+              ),
+              SwitchRow(title: '한 달에 한 번 알려 주기', value: s.exportReminder, onChanged: (v) => set((x) => x.exportReminder = v)),
+              for (final a in AiSource.values)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      SourceBadge(a, small: true),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          s.lastExportRequest[a.key] == null ? '아직 요청 기록 없음' : '마지막 요청: ${dateText.format(s.lastExportRequest[a.key]!)}',
+                          style: tt.bodyLarge,
+                        ),
+                      ),
+                    ],
                   ),
-                  ChoiceChip(
-                    label: const Text('외부 음성 서비스(준비 중)'),
-                    selected: false,
-                    onSelected: (_) => showNotice(context, '외부 음성 서비스는 다음 버전에서 쓸 수 있어요.', kind: StatusKind.check),
-                  ),
-                ],
+                ),
+              const SizedBox(height: AppSize.gapS),
+              BigButton(
+                label: '내보내기 받는 법 보기',
+                image: AppIcons3d.books,
+                kind: ButtonKind.primary,
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ExportGuideScreen())),
               ),
             ],
           ),
@@ -287,46 +264,122 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
           gap,
-          // ---------- 내보내기 알림·지메일 ----------
+          // ---------- 지메일 ----------
           SectionCard(
-            title: '내보내기 알림',
-            image: AppIcons3d.bell,
+            title: '지메일',
+            image: AppIcons3d.envelope,
             children: [
-              SwitchRow(title: '한 달에 한 번 알려 주기', value: s.exportReminder, onChanged: (v) => set((x) => x.exportReminder = v)),
-              for (final a in AiSource.values)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    children: [
-                      SourceBadge(a, small: true),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          s.lastExportRequest[a.key] == null ? '아직 요청 기록 없음' : '마지막 요청: ${dateText.format(s.lastExportRequest[a.key]!)}',
-                          style: tt.bodyLarge,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              Text('내보내기 안내 메일이 오면 "내려받을 때가 됐어요"라고 알려 드려요(읽기 전용).', style: tt.bodyLarge),
+              const SizedBox(height: AppSize.gapS),
+              StatusBadge(kind: s.gmailConnected ? StatusKind.done : StatusKind.progress, text: s.gmailConnected ? '연결됨' : '연결 안 됨'),
               const SizedBox(height: AppSize.gapS),
               BigButton(
-                label: '내보내기 받는 법 보기',
-                image: AppIcons3d.books,
+                label: s.gmailConnected ? '지메일 연결 관리' : '지메일 연결하기',
+                icon: Icons.mail_rounded,
                 kind: ButtonKind.primary,
-                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ExportGuideScreen())),
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GmailSetupScreen())),
+              ),
+            ],
+          ),
+          gap,
+          // ---------- 보기 ----------
+          SectionCard(
+            title: '보기',
+            image: AppIcons3d.bulb,
+            children: [
+              Text('글씨 크기', style: tt.titleMedium),
+              const SizedBox(height: AppSize.gapS),
+              Wrap(
+                spacing: AppSize.gapS,
+                runSpacing: AppSize.gapS,
+                children: [
+                  for (final f in FontSize.values)
+                    ChoiceChip(label: Text(f.label), selected: s.fontSize == f, onSelected: (_) => set((x) => x.fontSize = f)),
+                ],
               ),
               const SizedBox(height: AppSize.gapM),
-              Text('지메일 연결(읽기 전용)', style: tt.titleMedium),
-              Text('내보내기 안내 메일이 오면 알려 드리는 기능이에요. 링크는 로그인이 필요해서 앱이 대신 내려받지는 않아요.', style: tt.bodySmall),
+              Text('화면 밝기', style: tt.titleMedium),
               const SizedBox(height: AppSize.gapS),
-              const StatusBadge(kind: StatusKind.check, text: '준비 중: 판매 버전에서 구글 연결 설정 후 쓸 수 있어요'),
+              Wrap(
+                spacing: AppSize.gapS,
+                runSpacing: AppSize.gapS,
+                children: [
+                  for (final t in ThemeChoice.values)
+                    ChoiceChip(label: Text(t.label), selected: s.theme == t, onSelected: (_) => set((x) => x.theme = t)),
+                ],
+              ),
+              const SizedBox(height: AppSize.gapS),
+              SwitchRow(
+                title: '고대비(아주 또렷하게)',
+                subtitle: '글자와 테두리를 더 진하게 보여줘요',
+                value: s.highContrast,
+                onChanged: (v) => set((x) => x.highContrast = v),
+              ),
+              SwitchRow(
+                title: '움직임 줄이기',
+                subtitle: '화면 움직임 효과를 꺼요',
+                value: s.reduceMotion,
+                onChanged: (v) => set((x) => x.reduceMotion = v),
+              ),
+              SwitchRow(title: '누를 때 진동', value: s.haptics, onChanged: (v) => set((x) => x.haptics = v)),
+              SwitchRow(title: '누를 때 소리', value: s.sounds, onChanged: (v) => set((x) => x.sounds = v)),
+              const SizedBox(height: AppSize.gapS),
+              BigButton(
+                label: '앱 꾸미기(이름·아이콘·색)',
+                image: AppIcons3d.sparkles,
+                kind: ButtonKind.primary,
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CustomizeScreen())),
+              ),
+            ],
+          ),
+          gap,
+          // ---------- 음성 ----------
+          SectionCard(
+            title: '음성',
+            image: AppIcons3d.mic,
+            children: [
+              if (!c.voice.canListen) const StatusBadge(kind: StatusKind.check, text: '이 기기에서는 음성 인식을 쓸 수 없어 글자 입력칸을 보여드려요.'),
+              SwitchRow(title: '읽어주기 켜기', value: s.ttsEnabled, onChanged: (v) => set((x) => x.ttsEnabled = v)),
+              Text(
+                '읽는 속도: ${s.ttsRate <= 0.35
+                    ? '느리게'
+                    : s.ttsRate >= 0.65
+                    ? '빠르게'
+                    : '보통'}',
+                style: tt.titleMedium,
+              ),
+              Slider(value: s.ttsRate, min: 0.2, max: 0.9, divisions: 7, label: '속도', onChanged: (v) => set((x) => x.ttsRate = v)),
+              BigButton(
+                label: '읽기 시험해 보기',
+                image: AppIcons3d.speaker,
+                kind: ButtonKind.quiet,
+                onPressed: () => readAloud(context, c, '안녕하세요. 이 속도로 읽어 드릴게요.'),
+              ),
+              const SizedBox(height: AppSize.gapM),
+              Text('음성 엔진', style: tt.titleMedium),
+              const SizedBox(height: AppSize.gapS),
+              Wrap(
+                spacing: AppSize.gapS,
+                runSpacing: AppSize.gapS,
+                children: [
+                  ChoiceChip(
+                    label: const Text('기기 내장(무료)'),
+                    selected: s.voiceEngine == 'device',
+                    onSelected: (_) => set((x) => x.voiceEngine = 'device'),
+                  ),
+                  ChoiceChip(
+                    label: const Text('외부 음성 서비스(준비 중)'),
+                    selected: false,
+                    onSelected: (_) => showNotice(context, '외부 음성 서비스는 다음 버전에서 쓸 수 있어요.', kind: StatusKind.check),
+                  ),
+                ],
+              ),
             ],
           ),
           gap,
           // ---------- 자료 ----------
           SectionCard(
-            title: '내 자료',
+            title: '자료 관리',
             image: AppIcons3d.lock,
             children: [
               BigButton(label: '백업 파일 만들기', icon: Icons.save_alt_rounded, kind: ButtonKind.success, onPressed: () => _backup(context, c)),
@@ -340,23 +393,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onPressed: () {
                   Navigator.of(context).popUntil((r) => r.isFirst);
                   c.signOut();
-                },
-              ),
-              const SizedBox(height: AppSize.gapS),
-              BigButton(
-                label: '내 자료 모두 지우기(초기화)',
-                icon: Icons.delete_forever_rounded,
-                kind: ButtonKind.danger,
-                onPressed: () async {
-                  final ok = await confirmTwice(
-                    context,
-                    title: '정말 초기화할까요?',
-                    message: '${session.user.name}님의 앱 안 대화·주제·메모·설정이 모두 지워져요. 받아 둔 내보내기 파일은 그대로 남아요. 먼저 백업을 만들어 두면 좋아요.',
-                    confirmLabel: '모두 지울게요',
-                  );
-                  if (!ok || !context.mounted) return;
-                  Navigator.of(context).popUntil((r) => r.isFirst);
-                  await c.resetCurrentUser();
                 },
               ),
             ],
@@ -388,13 +424,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: AppSize.gapS),
               BigButton(
-                label: '문제 신고',
-                icon: Icons.flag_rounded,
-                kind: ButtonKind.danger,
-                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProblemReportScreen())),
-              ),
-              const SizedBox(height: AppSize.gapS),
-              BigButton(
                 label: '사용한 글꼴·그림 라이선스',
                 icon: Icons.description_rounded,
                 kind: ButtonKind.quiet,
@@ -412,6 +441,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: AppSize.gapS),
               Text('${AppInfo.name} 버전 ${AppInfo.version} (자료 버전 ${session.database.version})', style: tt.bodySmall),
             ],
+          ),
+          gap,
+          // ---------- 위험한 동작(맨 아래 빨강 카드) ----------
+          Container(
+            padding: const EdgeInsets.all(AppSize.gapL),
+            decoration: BoxDecoration(
+              color: Color.lerp(p.surface, p.danger, 0.12),
+              borderRadius: BorderRadius.circular(AppSize.radiusCard),
+              border: Border.all(color: p.danger, width: 2),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.warning_rounded, color: p.danger, size: 32),
+                    const SizedBox(width: AppSize.gapS),
+                    Expanded(child: Text('조심해서 쓰는 기능', style: tt.titleLarge)),
+                  ],
+                ),
+                Text('지우면 되돌릴 수 없어요. 먼저 백업을 만들어 두세요.', style: tt.bodyLarge),
+                const SizedBox(height: AppSize.gapS),
+                BigButton(
+                  label: '내 자료 모두 지우기(초기화)',
+                  icon: Icons.delete_forever_rounded,
+                  kind: ButtonKind.danger,
+                  onPressed: () async {
+                    final ok = await confirmTwice(
+                      context,
+                      title: '정말 초기화할까요?',
+                      message: '${session.user.name}님의 앱 안 대화·주제·메모·설정이 모두 지워져요. 받아 둔 내보내기 파일은 그대로 남아요. 먼저 백업을 만들어 두면 좋아요.',
+                      confirmLabel: '모두 지울게요',
+                    );
+                    if (!ok || !context.mounted) return;
+                    Navigator.of(context).popUntil((r) => r.isFirst);
+                    await c.resetCurrentUser();
+                  },
+                ),
+              ],
+            ),
           ),
         ],
       ),

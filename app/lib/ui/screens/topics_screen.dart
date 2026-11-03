@@ -10,6 +10,7 @@ import '../widgets/common.dart';
 import '../widgets/conversation_tile.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/page.dart';
+import '../shell.dart';
 import '../widgets/voice_input.dart';
 import 'conversation_screen.dart';
 import 'decisions_screen.dart';
@@ -72,7 +73,8 @@ Future<void> startClassify(BuildContext context, List<int> ids) async {
 }
 
 class TopicsScreen extends StatelessWidget {
-  const TopicsScreen({super.key});
+  final bool asTab;
+  const TopicsScreen({super.key, this.asTab = false});
 
   List<(Topic, int)> _tree(List<Topic> all) {
     final byParent = <int?, List<Topic>>{};
@@ -174,89 +176,95 @@ class TopicsScreen extends StatelessWidget {
     final tt = Theme.of(context).textTheme;
     final tree = _tree(s.topics.all());
     final total = s.store.count();
-    return AppPage(
-      title: '주제별 보기',
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const TipBubble(id: 'topics', text: '주제는 폴더예요. 대화를 다른 주제로 옮기면 다음 정리 때도 기억해요.'),
-          Wrap(
-            spacing: AppSize.gapS,
-            runSpacing: AppSize.gapS,
-            children: [
-              BigButton(
-                label: '다시 정리하기',
-                image: AppIcons3d.sparkles,
-                expand: false,
-                kind: ButtonKind.accent,
-                onPressed: c.busy ? null : () => startClassify(context, c.allIds()),
-              ),
-              BigButton(
-                label: '새 주제 만들기',
-                icon: Icons.create_new_folder_rounded,
-                expand: false,
-                kind: ButtonKind.primary,
-                onPressed: () async {
-                  final n = await askText(context, title: '새 주제 이름', hint: '예: 여행 계획', confirmLabel: '만들기');
-                  if (n != null && n.trim().isNotEmpty) {
-                    s.topics.create(n);
-                    c.touch();
-                  }
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSize.gapL),
-          if (total == 0)
-            EmptyState(
-              title: '아직 주제가 없어요',
-              message: '이렇게 시작하세요: 대화 기록을 넣으면 자동으로 주제별로 나눠 드려요.',
-              actionLabel: '대화 넣기',
-              onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ImportScreen())),
-            )
-          else if (tree.isEmpty)
-            EmptyState(
-              title: '아직 나누지 않았어요',
-              message: '"다시 정리하기"를 누르면 주제별로 나눠요.',
-              actionLabel: '정리하기',
-              onAction: () => startClassify(context, c.allIds()),
-            )
-          else
-            for (final (i, (t, depth)) in tree.indexed) ...[
-              AppearUp(
-                index: i,
-                child: Padding(
-                  padding: EdgeInsets.only(left: 24.0 * depth),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: p.surface,
+    final wide = asTab && isWide(context);
+    final listColumn = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const TipBubble(id: 'topics', text: '주제는 폴더예요. 대화를 다른 주제로 옮기면 다음 정리 때도 기억해요.'),
+        Wrap(
+          spacing: AppSize.gapS,
+          runSpacing: AppSize.gapS,
+          children: [
+            BigButton(
+              label: '다시 정리하기',
+              image: AppIcons3d.sparkles,
+              expand: false,
+              kind: ButtonKind.accent,
+              onPressed: c.busy ? null : () => startClassify(context, c.allIds()),
+            ),
+            BigButton(
+              label: '새 주제 만들기',
+              icon: Icons.create_new_folder_rounded,
+              expand: false,
+              kind: ButtonKind.primary,
+              onPressed: () async {
+                final n = await askText(context, title: '새 주제 이름', hint: '예: 여행 계획', confirmLabel: '만들기');
+                if (n != null && n.trim().isNotEmpty) {
+                  s.topics.create(n);
+                  c.touch();
+                }
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSize.gapL),
+        if (total == 0)
+          EmptyState(
+            title: '아직 주제가 없어요',
+            message: '이렇게 시작하세요: 대화 기록을 넣으면 자동으로 주제별로 나눠 드려요.',
+            actionLabel: '대화 넣기',
+            onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ImportScreen())),
+          )
+        else if (tree.isEmpty)
+          EmptyState(
+            title: '아직 나누지 않았어요',
+            message: '"다시 정리하기"를 누르면 주제별로 나눠요.',
+            actionLabel: '정리하기',
+            onAction: () => startClassify(context, c.allIds()),
+          )
+        else
+          for (final (i, (t, depth)) in tree.indexed) ...[
+            AppearUp(
+              index: i,
+              child: Padding(
+                padding: EdgeInsets.only(left: 24.0 * depth),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: wide && _selected.value == t.id ? Color.lerp(p.surface, TopicColors.of(t.id), 0.2) : p.surface,
+                    borderRadius: BorderRadius.circular(AppSize.radius),
+                    border: p.borderWidth > 1 ? Border.all(color: p.border, width: p.borderWidth) : null,
+                    boxShadow: p.borderWidth > 1 ? null : AppShadows.soft(p),
+                  ),
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: InkWell(
                       borderRadius: BorderRadius.circular(AppSize.radius),
-                      border: Border.all(color: p.border, width: p.borderWidth),
-                    ),
-                    child: Material(
-                      type: MaterialType.transparency,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(AppSize.radius),
-                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => TopicDetailScreen(topicId: t.id))),
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(minHeight: AppSize.buttonHeight + 8),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            child: Row(
-                              children: [
-                                if (depth > 0) Icon(Icons.subdirectory_arrow_right_rounded, color: p.textMuted),
-                                Image.asset(AppIcons3d.folder, width: 40, height: 40, excludeFromSemantics: true),
-                                const SizedBox(width: 12),
-                                Expanded(child: Text(t.name, style: tt.titleMedium)),
-                                StatusBadge(kind: StatusKind.progress, text: '${t.count}개'),
-                                IconButton(
-                                  tooltip: '주제 관리',
-                                  iconSize: 30,
-                                  icon: Icon(Icons.more_vert_rounded, color: p.text),
-                                  onPressed: () => _menu(context, t),
-                                ),
-                              ],
-                            ),
+                      onTap: () => wide
+                          ? _selected.value = t.id
+                          : Navigator.of(context).push(MaterialPageRoute(builder: (_) => TopicDetailScreen(topicId: t.id))),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: AppSize.buttonHeight + 8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          child: Row(
+                            children: [
+                              if (depth > 0) Icon(Icons.subdirectory_arrow_right_rounded, color: p.textMuted),
+                              Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(color: TopicColors.of(t.id), borderRadius: BorderRadius.circular(12)),
+                                child: const Icon(Icons.folder_rounded, color: Colors.white, size: 26),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(child: Text(t.name, style: tt.titleMedium)),
+                              StatusBadge(kind: StatusKind.progress, text: '${t.count}개'),
+                              IconButton(
+                                tooltip: '주제 관리',
+                                iconSize: 30,
+                                icon: Icon(Icons.more_vert_rounded, color: p.text),
+                                onPressed: () => _menu(context, t),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -264,18 +272,52 @@ class TopicsScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: AppSize.gapS),
-            ],
-        ],
+            ),
+            const SizedBox(height: AppSize.gapS),
+          ],
+      ],
+    );
+    if (!wide) return AppPage(title: '주제별 보기', isHome: asTab, body: listColumn);
+    // 넓은 화면: 왼쪽 주제 폴더 + 가운데 목록(+ 오른쪽 본문)
+    return AppPage(
+      title: '주제별 보기',
+      isHome: true,
+      scroll: false,
+      body: ValueListenableBuilder<int?>(
+        valueListenable: _selected,
+        builder: (context, sel, _) => Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              width: 380,
+              child: SingleChildScrollView(
+                key: const PageStorageKey<String>('topics-list'),
+                padding: const EdgeInsets.only(bottom: AppSize.gapXxl, right: AppSize.gapS),
+                child: listColumn,
+              ),
+            ),
+            VerticalDivider(width: 1, color: p.border),
+            Expanded(
+              child: sel == null || s.topics.byId(sel) == null
+                  ? const Center(
+                      child: EmptyState(title: '왼쪽에서 주제를 고르세요', message: '고른 주제의 대화가 여기에 보여요.'),
+                    )
+                  : TopicDetailScreen(key: ValueKey(sel), topicId: sel, embedded: true),
+            ),
+          ],
+        ),
       ),
     );
   }
+
+  static final _selected = ValueNotifier<int?>(null);
 }
 
 /// 주제 하나 안의 대화 목록. "나누기"로 골라서 새 주제를 만들 수 있음.
 class TopicDetailScreen extends StatefulWidget {
   final int topicId;
-  const TopicDetailScreen({super.key, required this.topicId});
+  final bool embedded;
+  const TopicDetailScreen({super.key, required this.topicId, this.embedded = false});
   @override
   State<TopicDetailScreen> createState() => _TopicDetailScreenState();
 }
@@ -321,81 +363,138 @@ class _TopicDetailScreenState extends State<TopicDetailScreen> {
     final total = s.store.count(topicId: topic.id);
     final list = s.store.list(topicId: topic.id, limit: shown);
     final tt = Theme.of(context).textTheme;
-    return AppPage(
-      title: topic.name,
-      body: Column(
+    final listColumn = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('대화 $total개', style: tt.bodySmall),
+        const SizedBox(height: AppSize.gapM),
+        Wrap(
+          spacing: AppSize.gapS,
+          runSpacing: AppSize.gapS,
+          children: [
+            BigButton(
+              label: '정한 내용 보기',
+              image: AppIcons3d.memo,
+              expand: false,
+              kind: ButtonKind.accent,
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => TopicDigestScreen(topicId: topic.id))),
+            ),
+            BigButton(
+              label: selecting ? '고른 대화 나누기 (${selected.length})' : '나누기',
+              icon: Icons.call_split_rounded,
+              expand: false,
+              kind: selecting ? ButtonKind.success : ButtonKind.primary,
+              onPressed: selecting ? _split : () => setState(() => selecting = true),
+            ),
+            if (selecting)
+              BigButton(
+                label: '그만두기',
+                icon: Icons.close_rounded,
+                expand: false,
+                kind: ButtonKind.quiet,
+                onPressed: () => setState(() {
+                  selecting = false;
+                  selected.clear();
+                }),
+              ),
+          ],
+        ),
+        const SizedBox(height: AppSize.gapM),
+        VoiceTextField(
+          hint: '이 주제 안에서 찾기',
+          onSubmit: (t) {
+            // 주제 안 검색: 일반 검색 결과에서 이 주제만
+            final ids = s.store.list(topicId: topic.id, limit: 100000).map((e) => e.id).toSet();
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => _TopicSearchResults(text: t, ids: ids),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: AppSize.gapM),
+        for (final (i, conv) in list.indexed) ...[
+          AppearUp(
+            index: i % pageSize,
+            child: ConversationTile(
+              c: conv,
+              leading: selecting
+                  ? Checkbox(
+                      value: selected.contains(conv.id),
+                      onChanged: (v) => setState(() => v == true ? selected.add(conv.id) : selected.remove(conv.id)),
+                    )
+                  : null,
+              onOpen: selecting
+                  ? () => setState(() => selected.contains(conv.id) ? selected.remove(conv.id) : selected.add(conv.id))
+                  : () => _openConv(conv.id),
+              selected: openConv == conv.id,
+            ),
+          ),
+          const SizedBox(height: AppSize.gapM),
+        ],
+        if (list.length < total)
+          BigButton(label: '더 보기', icon: Icons.expand_more_rounded, onPressed: () => setState(() => shown += pageSize)),
+      ],
+    );
+    final p = AppTheme.of(context).palette;
+    if (!widget.embedded) return AppPage(title: topic.name, body: listColumn);
+    final three = MediaQuery.sizeOf(context).width >= 1400;
+    final listPane = Material(
+      color: p.background,
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('대화 $total개', style: tt.bodySmall),
-          const SizedBox(height: AppSize.gapM),
-          Wrap(
-            spacing: AppSize.gapS,
-            runSpacing: AppSize.gapS,
-            children: [
-              BigButton(
-                label: '정한 내용 보기',
-                image: AppIcons3d.memo,
-                expand: false,
-                kind: ButtonKind.accent,
-                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => TopicDigestScreen(topicId: topic.id))),
-              ),
-              BigButton(
-                label: selecting ? '고른 대화 나누기 (${selected.length})' : '나누기',
-                icon: Icons.call_split_rounded,
-                expand: false,
-                kind: selecting ? ButtonKind.success : ButtonKind.primary,
-                onPressed: selecting ? _split : () => setState(() => selecting = true),
-              ),
-              if (selecting)
-                BigButton(
-                  label: '그만두기',
-                  icon: Icons.close_rounded,
-                  expand: false,
-                  kind: ButtonKind.quiet,
-                  onPressed: () => setState(() {
-                    selecting = false;
-                    selected.clear();
-                  }),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(AppSize.pagePadding, AppSize.gapM, AppSize.pagePadding, 0),
+            child: Row(
+              children: [
+                Container(
+                  width: 14,
+                  height: 14,
+                  decoration: BoxDecoration(color: TopicColors.of(topic.id), shape: BoxShape.circle),
                 ),
-            ],
-          ),
-          const SizedBox(height: AppSize.gapM),
-          VoiceTextField(
-            hint: '이 주제 안에서 찾기',
-            onSubmit: (t) {
-              // 주제 안 검색: 일반 검색 결과에서 이 주제만
-              final ids = s.store.list(topicId: topic.id, limit: 100000).map((e) => e.id).toSet();
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => _TopicSearchResults(text: t, ids: ids),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Semantics(header: true, child: Text(topic.name, style: Theme.of(context).textTheme.titleLarge)),
                 ),
-              );
-            },
-          ),
-          const SizedBox(height: AppSize.gapM),
-          for (final (i, conv) in list.indexed) ...[
-            AppearUp(
-              index: i % pageSize,
-              child: ConversationTile(
-                c: conv,
-                leading: selecting
-                    ? Checkbox(
-                        value: selected.contains(conv.id),
-                        onChanged: (v) => setState(() => v == true ? selected.add(conv.id) : selected.remove(conv.id)),
-                      )
-                    : null,
-                onOpen: selecting
-                    ? () => setState(() => selected.contains(conv.id) ? selected.remove(conv.id) : selected.add(conv.id))
-                    : () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ConversationScreen(id: conv.id))),
-              ),
+              ],
             ),
-            const SizedBox(height: AppSize.gapM),
-          ],
-          if (list.length < total)
-            BigButton(label: '더 보기', icon: Icons.expand_more_rounded, onPressed: () => setState(() => shown += pageSize)),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              key: PageStorageKey<String>('topic-${topic.id}'),
+              padding: const EdgeInsets.fromLTRB(AppSize.pagePadding, AppSize.gapS, AppSize.pagePadding, AppSize.gapXxl),
+              child: listColumn,
+            ),
+          ),
         ],
       ),
     );
+    if (!three) return listPane;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(width: 440, child: listPane),
+        VerticalDivider(width: 1, color: p.border),
+        Expanded(
+          child: openConv == null
+              ? const Center(
+                  child: EmptyState(title: '대화를 고르세요', message: '고른 대화의 전체 내용이 여기에 보여요.'),
+                )
+              : ConversationScreen(key: ValueKey(openConv), id: openConv!, embedded: true, onClosed: () => setState(() => openConv = null)),
+        ),
+      ],
+    );
+  }
+
+  int? openConv;
+
+  void _openConv(int id) {
+    if (widget.embedded && MediaQuery.sizeOf(context).width >= 1400) {
+      setState(() => openConv = id);
+    } else {
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => ConversationScreen(id: id)));
+    }
   }
 }
 

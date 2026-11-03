@@ -17,7 +17,11 @@ import 'package:ai_chat_organizer/ui/screens/settings_screen.dart';
 import 'package:ai_chat_organizer/ui/screens/timeline_screen.dart';
 import 'package:ai_chat_organizer/ui/screens/topics_screen.dart';
 import 'package:ai_chat_organizer/ui/screens/onboarding_screen.dart';
+import 'package:ai_chat_organizer/ui/screens/customize_screen.dart';
+import 'package:ai_chat_organizer/ui/screens/gmail_setup_screen.dart';
+import 'package:ai_chat_organizer/ui/shell.dart';
 import 'package:ai_chat_organizer/ui/widgets/common.dart';
+import 'package:ai_chat_organizer/ui/widgets/conversation_tile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -43,6 +47,10 @@ void main() {
       ('어둡게', AppPalette.dark),
       ('고대비 밝게', AppPalette.highContrastLight),
       ('고대비 어둡게', AppPalette.highContrastDark),
+      for (final t in ColorThemes.names.keys) ...[
+        ('색 테마 $t 밝게', ColorThemes.apply(AppPalette.light, t)),
+        ('색 테마 $t 어둡게', ColorThemes.apply(AppPalette.dark, t)),
+      ],
     ]) {
       test(name, () {
         for (final (fg, bg, label) in pal.contrastPairs) {
@@ -72,6 +80,13 @@ void main() {
       '라이선스': (_) => const LicensesScreen(),
       '사용자 고르기': (_) => const ProfileScreen(),
       '첫 안내': (_) => const OnboardingScreen(),
+      '지메일 연결': (_) => const GmailSetupScreen(),
+      '앱 꾸미기': (_) => const CustomizeScreen(),
+      '탭 틀(홈)': (_) => const MainShell(),
+      '찾기 탭(넓으면 목록+본문)': (_) => const SearchScreen(asTab: true, initialQuery: '유튜브'),
+      '주제 탭(넓으면 3단)': (_) => const TopicsScreen(asTab: true),
+      '주제 안(옆 칸)': (_) => TopicDetailScreen(topicId: topicId!, embedded: true),
+      '대화(옆 칸)': (_) => ConversationScreen(id: convId!, embedded: true),
     };
     final modes = <String, void Function(AppSettings)>{
       '밝게': (s) => s.theme = ThemeChoice.light,
@@ -81,7 +96,7 @@ void main() {
         s.highContrast = true;
       },
     };
-    for (final size in [const Size(360, 640), const Size(1280, 800)]) {
+    for (final size in [const Size(360, 640), const Size(1280, 800), const Size(1600, 900)]) {
       for (final m in modes.entries) {
         testWidgets('${size.width.toInt()}폭 · ${m.key} · 모든 화면', (tester) async {
           await setScreen(tester, size);
@@ -156,6 +171,21 @@ void main() {
     c.updateSettings((s) => s.fontSize = FontSize.xlarge);
     await tester.pump();
     expect(MediaQuery.textScalerOf(tester.element(find.byType(HomeScreen))).scale(10), 15);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('가장 먼저 눈에 띄는 것이 가장 중요한 것인가: 홈 검색창이 맨 위·가장 크게', (tester) async {
+    await setScreen(tester, const Size(390, 844));
+    final c = (await tester.runAsync(() => readyController()))!;
+    await tester.pumpWidget(appWith(c, home: const HomeScreen()));
+    await tester.pump(const Duration(milliseconds: 300));
+    final search = tester.getRect(find.byType(TextField).first);
+    final today = tester.getRect(find.text('오늘 할 일'));
+    final firstTile = tester.getRect(find.byType(ConversationTile).first);
+    expect(search.height, greaterThanOrEqualTo(64), reason: '검색창 높이 64 이상');
+    expect(search.width, greaterThan(390 * 0.7), reason: '검색창은 화면 폭 거의 전체');
+    expect(search.top, lessThan(today.top), reason: '검색창이 오늘 할 일보다 위');
+    expect(today.top, lessThan(firstTile.top), reason: '오늘 할 일이 최근 대화보다 위');
     await tester.pumpWidget(const SizedBox());
   });
 }
