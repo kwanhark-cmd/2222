@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 업데이트 설치 파일(APK)을 설치 화면에 넘길 때만 쓰는 임시 폴더 -->
+<paths>
+    <cache-path name="cache" path="." />
+</paths>

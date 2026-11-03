@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:isolate';
 
@@ -6,6 +7,7 @@ import 'package:flutter/services.dart' show rootBundle;
 
 import '../classify/ai_provider.dart';
 import '../classify/classification_service.dart';
+import '../core/app_info.dart';
 import '../core/app_log.dart';
 import '../core/cancel_token.dart';
 import '../data/conversation_store.dart';
@@ -16,6 +18,7 @@ import '../parsers/parser_common.dart';
 import '../voice/voice_service.dart';
 import 'backup_service.dart';
 import 'settings.dart';
+import 'update_service.dart';
 import 'user_service.dart';
 import 'user_session.dart';
 
@@ -49,6 +52,7 @@ class AppController extends ChangeNotifier {
   final Directory root;
   final KeyStore keys;
   final VoiceService voice;
+  final bool autoUpdateCheck;
   final bool inMemoryDb;
   final Future<Uint8List> Function(String asset) loadAsset;
   late final UserService users;
@@ -67,6 +71,7 @@ class AppController extends ChangeNotifier {
     required this.keys,
     required this.voice,
     this.inMemoryDb = false,
+    this.autoUpdateCheck = true,
     Future<Uint8List> Function(String asset)? loadAsset,
   }) : loadAsset = loadAsset ?? ((a) async => (await rootBundle.load(a)).buffer.asUint8List()) {
     users = UserService(root);
@@ -113,8 +118,17 @@ class AppController extends ChangeNotifier {
         s.reduceMotion = guestSettings.reduceMotion;
         session!.saveSettings();
       }
+      // 이미 대화가 있는 사용자(이전 버전에서 쓰던 자료)는 첫 안내를 건너뜀
+      final ss = session!;
+      if (!ss.settings.onboardingDone && ss.store.count() > 0) {
+        ss.settings.onboardingDone = true;
+        ss.saveSettings();
+      }
+      applySampleVisibility();
+      // 하루 한 번 조용히 새 버전 확인(인터넷이 없어도 앱은 그대로)
+      if (autoUpdateCheck) unawaited(checkForUpdate(silent: true).then((_) => notifyListeners(), onError: (_) {}));
       fatalError = null;
-      AppLog.info('사용자 열기');
+      AppLog.info('사용자 열기', {'dataVersion': ss.database.version});
     } catch (e, st) {
       AppLog.error('사용자 자료 열기 실패', e, st);
       fatalError = '자료를 여는 중 문제가 생겼어요. 설정의 "문제 신고"로 알려 주시거나 백업에서 되살려 주세요.';
@@ -129,8 +143,23 @@ class AppController extends ChangeNotifier {
     touch();
   }
 
+  /// 실제 대화가 들어오면 샘플을 숨김(설정에서 다시 보이게 할 수 있음).
+  void applySampleVisibility() {
+    final s = session;
+    if (s == null) return;
+    final hide = !s.settings.showSamples && s.store.realCount() > 0;
+    s.store.hideSamples = hide;
+    s.topics.hideSamples = hide;
+  }
+
+  bool get samplesHidden => session?.store.hideSamples ?? false;
+
+  /// 홈 제목 등에 쓰는 앱 이름(설정에서 바꿀 수 있음).
+  String get appName => settings.displayName ?? defaultAppName;
+
   void updateSettings(void Function(AppSettings s) change) {
     change(settings);
+    applySampleVisibility();
     if (session != null) {
       session!.saveSettings();
     } else {
@@ -199,14 +228,14 @@ class AppController extends ChangeNotifier {
     for (final a in ['claude_sample.json', 'chatgpt_sample.json', 'gemini_sample.html']) {
       all.addAll(ImportReader.read(a, await loadAsset('assets/samples/$a')));
     }
-    last = await _runImport('샘플 대화 가져오기', 'samples', () async => all);
+    last = await _runImport('샘플 대화 가져오기', 'samples', () async => all, sample: true);
     return last;
   }
 
   Future<Job?> importBytes(String name, Uint8List bytes, {AiSource? hint}) =>
       _runImport('$name 가져오기', name, () => parseInBackground(name, bytes, hint));
 
-  Future<Job?> _runImport(String title, String fileName, Future<List<ParseResult>> Function() parse) async {
+  Future<Job?> _runImport(String title, String fileName, Future<List<ParseResult>> Function() parse, {bool sample = false}) async {
     final s = session;
     if (s == null || busy) return null;
     final j = Job(JobKind.importing, title);
@@ -239,6 +268,7 @@ class AppController extends ChangeNotifier {
       final summary = await s.store.importResults(
         results,
         fileName: fileName,
+        sample: sample,
         cancel: j.cancel,
         onProgress: (d, t) {
           j.done = d;
@@ -253,6 +283,7 @@ class AppController extends ChangeNotifier {
         notifyListeners();
         await s.classifier.classifyOffline(summary.touchedIds, cancel: j.cancel);
       }
+      applySampleVisibility();
       j.state = summary.cancelled ? JobState.cancelled : JobState.done;
       j.message = summary.cancelled ? '취소했어요. 지금까지 ${summary.saved}개는 저장됐어요.' : '다 가져왔어요!';
     } catch (e, st) {
@@ -343,7 +374,59 @@ class AppController extends ChangeNotifier {
   List<int> allIds() {
     final s = session;
     if (s == null) return const [];
-    return s.store.db.select('SELECT id FROM conversations ORDER BY created_at DESC').map((r) => r['id'] as int).toList();
+    return s.store.db
+        .select('SELECT id FROM conversations c WHERE ${s.store.sampleCond()} ORDER BY created_at DESC')
+        .map((r) => r['id'] as int)
+        .toList();
+  }
+
+  // ---------- 업데이트 ----------
+
+  /// 테스트에서 가짜 서버를 넣을 수 있게 둡니다.
+  UpdateService Function()? updateServiceFactory;
+  UpdateService get updates => (updateServiceFactory ?? () => UpdateService())();
+  UpdateInfo? availableUpdate;
+
+  bool get hasUpdateBadge {
+    final v = settings.latestVersion;
+    return v != null && compareVersions(v, AppInfo.version) > 0;
+  }
+
+  /// [silent]: 앱 시작 때 하루 한 번 조용히 확인(오류는 기록만).
+  Future<UpdateInfo?> checkForUpdate({bool silent = false}) async {
+    if (silent) {
+      final last = settings.lastUpdateCheck;
+      if (last != null && DateTime.now().difference(last) < const Duration(hours: 24)) return null;
+    }
+    try {
+      final info = await updates.check();
+      availableUpdate = info;
+      updateSettings((s) {
+        s.lastUpdateCheck = DateTime.now();
+        s.latestVersion = info?.version;
+      });
+      return info;
+    } on UpdateError catch (e) {
+      AppLog.warn('업데이트 확인 안 됨', {'stage': '업데이트 확인', 'kind': e.kind.name});
+      if (silent) return null;
+      rethrow;
+    }
+  }
+
+  /// 설치 전 자동 백업: 자료 파일과 설정을 사용자 폴더의 backups에 복사(최근 5개 보관).
+  Future<Directory?> backupBeforeUpdate(String toVersion) async {
+    final s = session;
+    if (s == null || s.database.path == null) return null;
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    final dir = Directory('${s.dir.path}/backups/before-update-v${AppInfo.version}-to-v$toVersion-$stamp')..createSync(recursive: true);
+    s.database.db.execute("VACUUM INTO '${dir.path}/data.db'");
+    if (s.settingsFile.existsSync()) s.settingsFile.copySync('${dir.path}/settings.json');
+    final all = Directory('${s.dir.path}/backups').listSync().whereType<Directory>().toList()..sort((a, b) => a.path.compareTo(b.path));
+    while (all.length > 5) {
+      all.removeAt(0).deleteSync(recursive: true);
+    }
+    AppLog.info('업데이트 전 백업 완료', {'to': toVersion});
+    return dir;
   }
 
   // ---------- 백업·초기화 ----------

@@ -11,11 +11,11 @@ import 'ui/screens/home_screen.dart';
 import 'ui/screens/import_screen.dart';
 import 'ui/screens/onboarding_screen.dart';
 import 'ui/screens/profile_screen.dart';
+import 'ui/nav.dart';
 import 'ui/widgets/common.dart';
 import 'ui/widgets/dialogs.dart';
 
-final navigatorKey = GlobalKey<NavigatorState>();
-final messengerKey = GlobalKey<ScaffoldMessengerState>();
+export 'ui/nav.dart' show navigatorKey, messengerKey;
 
 /// 예상 못 한 오류가 나면 쉬운 한국어로 알려 줍니다(앱은 계속 동작).
 class AppErrorBus {

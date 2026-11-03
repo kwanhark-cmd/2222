@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.OpenableColumns
+import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -30,6 +31,25 @@ class MainActivity : FlutterActivity() {
             }
         }
         pendingPath = copySharedFile(intent)
+        // 업데이트: 내려받은 APK의 설치 화면 열기(설치는 사용자가 확인)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "aico/update").setMethodCallHandler { call, result ->
+            if (call.method == "installApk") {
+                try {
+                    val file = File(call.arguments as String)
+                    val uri = FileProvider.getUriForFile(this, "$packageName.updates", file)
+                    val install = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(uri, "application/vnd.android.package-archive")
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    startActivity(install)
+                    result.success(true)
+                } catch (e: Exception) {
+                    result.error("install", e.message, null)
+                }
+            } else {
+                result.notImplemented()
+            }
+        }
     }
 
     override fun onNewIntent(intent: Intent) {

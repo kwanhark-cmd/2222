@@ -126,6 +126,8 @@ void main() {
         'lib/services/user_service.dart', // 사용자 목록·사용자 폴더
         'lib/data/key_store.dart', // 키 대체 파일
         'lib/ui/widgets/file_actions.dart', // 임시 폴더에 공유용 새 파일
+        'lib/services/app_controller.dart', // 사용자 폴더 안 backups의 오래된 업데이트 전 백업 정리
+        'lib/services/update_service.dart', // 업데이트: 임시 폴더에 내려받기, 앱 자신의 실행 파일만 교체
       };
       final pattern = RegExp(
         r'\.(deleteSync|writeAsBytes|writeAsBytesSync|writeAsString|writeAsStringSync|renameSync|openWrite)\(|(File|Directory)\([^)]*\)\.(delete|rename)\(',

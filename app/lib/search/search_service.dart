@@ -49,7 +49,7 @@ class SearchService {
 
   Future<SearchPage> search(SearchQuery q, {int cursor = 0, int limit = 30}) async {
     final match = buildMatch(q);
-    final where = <String>[];
+    final where = <String>[store.sampleCond()];
     final args = <Object?>[];
     if (q.source != null) {
       where.add('c.source=?');
@@ -179,6 +179,7 @@ class SearchService {
         for (final r in rows) {
           final id = r['id'] as int;
           if (id == convId) continue;
+          if (store.isHiddenSample(id)) continue;
           scores[id] = (scores[id] ?? 0) + (-(r['rank'] as num).toDouble()).clamp(0, 50);
         }
       }

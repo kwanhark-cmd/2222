@@ -47,3 +47,8 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // 업데이트 설치 화면에 파일을 안전하게 넘기기(FileProvider)
+    implementation("androidx.core:core-ktx:1.13.1")
+}

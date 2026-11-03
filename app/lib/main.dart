@@ -4,24 +4,19 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
 
 import 'app.dart';
 import 'core/app_log.dart';
 import 'data/key_store.dart';
 import 'services/app_controller.dart';
+import 'services/data_location.dart';
 import 'voice/voice_service.dart';
 
 Future<void> main() async {
   runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
-      Directory root;
-      try {
-        root = Directory('${(await getApplicationSupportDirectory()).path}/ai_chat_organizer');
-      } catch (_) {
-        root = Directory('${Directory.systemTemp.path}/ai_chat_organizer');
-      }
+      final root = await DataLocation.resolve();
       root.createSync(recursive: true);
       AppLog.init(File('${root.path}/logs/app.log'));
       AppLog.info('앱 시작', {'os': Platform.operatingSystem});

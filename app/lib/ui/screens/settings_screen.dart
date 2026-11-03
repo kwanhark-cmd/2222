@@ -14,6 +14,7 @@ import '../widgets/conversation_tile.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/file_actions.dart';
 import '../widgets/page.dart';
+import '../widgets/update_card.dart';
 import 'export_guide_screen.dart';
 import 'licenses_screen.dart';
 import 'problem_report_screen.dart';
@@ -61,6 +62,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const UpdateCard(),
+          gap,
           // ---------- 보기 ----------
           SectionCard(
             title: '보기',

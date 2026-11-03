@@ -35,7 +35,14 @@ Future<Uint8List> fileAsset(String a) async => File(a).readAsBytesSync();
 
 AppController makeController({VoiceService? voice}) {
   final dir = Directory.systemTemp.createTempSync('aico_test');
-  return AppController(root: dir, keys: MemoryKeyStore(), voice: voice ?? FakeVoice(), inMemoryDb: true, loadAsset: fileAsset);
+  return AppController(
+    root: dir,
+    keys: MemoryKeyStore(),
+    voice: voice ?? FakeVoice(),
+    inMemoryDb: true,
+    autoUpdateCheck: false,
+    loadAsset: fileAsset,
+  );
 }
 
 /// 사용자 한 명 + 샘플 대화가 들어 있는 컨트롤러.

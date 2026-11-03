@@ -55,6 +55,18 @@ class AppSettings {
   bool similarWords = true;
   bool gmailConnected = false;
 
+  // 1.1.0에서 추가
+  static const formatVersion = 2;
+  bool showSamples = false; // false: 실제 대화가 있으면 샘플 숨김
+  String? displayName; // 앱 표시 이름(비우면 기본 이름)
+  String iconChoice = 'robot';
+  String colorTheme = 'blue';
+  DateTime? lastUpdateCheck;
+  String? latestVersion; // 마지막으로 확인한 새 버전
+  String? gmailClientId;
+  DateTime? lastGmailCheck;
+  int gmailFoundCount = 0;
+
   Map<String, dynamic> toJson() => {
     'fontSize': fontSize.name,
     'theme': theme.name,
@@ -77,6 +89,16 @@ class AppSettings {
     'exactMatch': exactMatch,
     'similarWords': similarWords,
     'gmailConnected': gmailConnected,
+    'formatVersion': formatVersion,
+    'showSamples': showSamples,
+    'displayName': displayName,
+    'iconChoice': iconChoice,
+    'colorTheme': colorTheme,
+    'lastUpdateCheck': lastUpdateCheck?.toIso8601String(),
+    'latestVersion': latestVersion,
+    'gmailClientId': gmailClientId,
+    'lastGmailCheck': lastGmailCheck?.toIso8601String(),
+    'gmailFoundCount': gmailFoundCount,
   };
 
   static T _enum<T extends Enum>(List<T> values, Object? v, T fallback) => values.firstWhere((e) => e.name == v, orElse: () => fallback);
@@ -106,6 +128,17 @@ class AppSettings {
     s.exactMatch = j['exactMatch'] == true;
     s.similarWords = j['similarWords'] != false;
     s.gmailConnected = j['gmailConnected'] == true;
+    // 1.0.0 설정 파일에는 아래 값이 없음 → 기본값(자동 변환)
+    final dn = (j['displayName'] as String?)?.trim();
+    s.showSamples = j['showSamples'] == true;
+    s.displayName = (dn == null || dn.isEmpty) ? null : dn;
+    s.iconChoice = (j['iconChoice'] ?? 'robot') as String;
+    s.colorTheme = (j['colorTheme'] ?? 'blue') as String;
+    s.lastUpdateCheck = DateTime.tryParse('${j['lastUpdateCheck'] ?? ''}');
+    s.latestVersion = j['latestVersion'] as String?;
+    s.gmailClientId = j['gmailClientId'] as String?;
+    s.lastGmailCheck = DateTime.tryParse('${j['lastGmailCheck'] ?? ''}');
+    s.gmailFoundCount = (j['gmailFoundCount'] as num?)?.toInt() ?? 0;
     return s;
   }
 
@@ -132,3 +165,6 @@ class AppSettings {
     }).toList();
   }
 }
+
+/// 앱 기본 이름
+const defaultAppName = 'AI 대화 기록 정리 비서';

@@ -31,6 +31,17 @@ class ConversationStore {
 
   ConversationStore(this.database, this.cipher);
 
+  /// true면 샘플 대화를 목록·검색·통계에서 숨깁니다(실제 대화가 들어오면 자동으로 켜짐).
+  bool hideSamples = false;
+
+  /// SQL 조건: 샘플 숨기기
+  String sampleCond([String alias = 'c']) => hideSamples ? '$alias.sample=0' : '1=1';
+
+  bool isHiddenSample(int id) => hideSamples && db.select('SELECT 1 FROM conversations WHERE id=? AND sample=1', [id]).isNotEmpty;
+
+  int realCount() => db.select('SELECT COUNT(*) AS n FROM conversations WHERE sample=0').first['n'] as int;
+  int sampleCount() => db.select('SELECT COUNT(*) AS n FROM conversations WHERE sample=1').first['n'] as int;
+
   Database get db => database.db;
 
   // ---------- 가져오기 ----------
@@ -40,6 +51,7 @@ class ConversationStore {
     required String fileName,
     void Function(int done, int total)? onProgress,
     CancelToken? cancel,
+    bool sample = false,
   }) async {
     final summary = ImportSummary();
     final all = <ParsedConversation>[];
@@ -53,10 +65,8 @@ class ConversationStore {
     }
     final now = DateTime.now().millisecondsSinceEpoch;
     final find = db.prepare('SELECT id, msg_count, updated_at FROM conversations WHERE source=? AND ext_id=?');
-    final insert = db.prepare(
-      '''INSERT INTO conversations(source, ext_id, title, created_at, updated_at, msg_count, link, has_attachments, imported_at, body)
-        VALUES(?,?,?,?,?,?,?,?,?,?)''',
-    );
+    final insert = db.prepare('''INSERT INTO conversations(source, ext_id, title, created_at, updated_at, msg_count, link, has_attachments, imported_at, body, sample)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?)''');
     final update = db.prepare(
       '''UPDATE conversations SET title=?, updated_at=?, msg_count=?, link=?, has_attachments=?, imported_at=?, body=?,
         summary=CASE WHEN summary_by_ai=1 THEN summary ELSE NULL END WHERE id=?''',
@@ -91,6 +101,7 @@ class ConversationStore {
                 c.hasAttachments ? 1 : 0,
                 now,
                 enc,
+                sample ? 1 : 0,
               ]);
               final id = db.lastInsertRowId;
               _index(id, c.title, c.messages);
@@ -184,7 +195,7 @@ class ConversationStore {
       'c.id, c.source, c.ext_id, c.title, c.created_at, c.updated_at, c.msg_count, c.starred, c.summary, c.link, c.has_attachments, c.imported_at';
 
   (String, List<Object?>) _filters({AiSource? source, int? topicId, bool? starred, String? tag, DateTime? from, DateTime? to}) {
-    final where = <String>[];
+    final where = <String>[sampleCond()];
     final args = <Object?>[];
     if (source != null) {
       where.add('c.source=?');
@@ -238,7 +249,7 @@ class ConversationStore {
 
   Map<AiSource, int> countBySource() {
     final out = <AiSource, int>{};
-    for (final r in db.select('SELECT source, COUNT(*) AS n FROM conversations GROUP BY source')) {
+    for (final r in db.select('SELECT source, COUNT(*) AS n FROM conversations c WHERE ${sampleCond()} GROUP BY source')) {
       final s = AiSourceInfo.fromKey(r['source'] as String);
       if (s != null) out[s] = r['n'] as int;
     }
@@ -258,9 +269,10 @@ class ConversationStore {
   }
 
   List<ConversationSummary> importedSince(DateTime since) {
-    final rows = db.select('SELECT $summaryColumns FROM conversations c WHERE c.imported_at>=? ORDER BY c.created_at DESC', [
-      since.millisecondsSinceEpoch,
-    ]);
+    final rows = db.select(
+      'SELECT $summaryColumns FROM conversations c WHERE c.imported_at>=? AND ${sampleCond()} ORDER BY c.created_at DESC',
+      [since.millisecondsSinceEpoch],
+    );
     return rows.map(rowToSummary).toList();
   }
 

@@ -41,6 +41,14 @@ jobs:
         with:
           name: linux-app
           path: app/build/linux/x64/release/bundle
+      - name: 배포용 파일 만들기
+        run: |
+          VER=$(grep '^version:' pubspec.yaml | sed 's/version: //; s/+.*//')
+          cd build/linux/x64/release && zip -qr "$GITHUB_WORKSPACE/ai-chat-organizer-v$VER-linux.zip" bundle
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-linux
+          path: ai-chat-organizer-v*-linux.zip
 
   android:
     name: 안드로이드 빌드
@@ -65,6 +73,14 @@ jobs:
         with:
           name: android-apk
           path: app/build/app/outputs/flutter-apk/app-release.apk
+      - name: 배포용 파일 만들기
+        run: |
+          VER=$(grep '^version:' pubspec.yaml | sed 's/version: //; s/+.*//')
+          cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/ai-chat-organizer-v$VER-android.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-android
+          path: ai-chat-organizer-v*-android.apk
 
   windows:
     name: 윈도우 빌드
@@ -84,6 +100,15 @@ jobs:
         with:
           name: windows-app
           path: app/build/windows/x64/runner/Release
+      - name: 배포용 파일 만들기
+        shell: pwsh
+        run: |
+          $ver = ((Get-Content pubspec.yaml | Select-String '^version:').ToString() -replace 'version: ','' -replace '\+.*','').Trim()
+          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath "$env:GITHUB_WORKSPACE\ai-chat-organizer-v$ver-windows.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: ai-chat-organizer-v*-windows.zip
 
   macos:
     name: 맥 빌드
@@ -105,3 +130,58 @@ jobs:
         with:
           name: macos-app
           path: app/macos-app.zip
+      - name: 배포용 파일 만들기
+        run: |
+          VER=$(grep '^version:' pubspec.yaml | sed 's/version: //; s/+.*//')
+          cp macos-app.zip "$GITHUB_WORKSPACE/ai-chat-organizer-v$VER-macos.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          path: ai-chat-organizer-v*-macos.zip
+
+  # main에 올라온 새 버전은 GitHub Releases에도 올립니다(앱의 "업데이트 확인"이 여기를 봅니다).
+  release:
+    name: 새 버전 배포(Releases)
+    needs: [test, android, windows, macos]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+      - name: 버전 읽기
+        id: v
+        run: |
+          VER=$(grep '^version:' app/pubspec.yaml | sed 's/version: //; s/+.*//')
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          if gh release view "v$VER" >/dev/null 2>&1; then echo "exists=true" >> "$GITHUB_OUTPUT"; else echo "exists=false" >> "$GITHUB_OUTPUT"; fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: 변경 내역(한국어) 꺼내기
+        if: steps.v.outputs.exists == 'false'
+        run: |
+          awk -v ver="## ${{ steps.v.outputs.version }}" 'index($0, ver)==1 {on=1; next} /^## / {on=0} on' CHANGELOG.md > notes.md
+          [ -s notes.md ] || echo "새 버전 ${{ steps.v.outputs.version }}" > notes.md
+          cat >> notes.md <<'TXT'
+
+          ### 설치 방법
+          - 앱 안: 설정 > 업데이트 확인 > 업데이트 (설정과 대화는 그대로 남아요)
+          - 직접: 아래 파일 중 내 기기용을 받아 기존 앱에 덮어쓰기
+          TXT
+      - uses: actions/download-artifact@v4
+        if: steps.v.outputs.exists == 'false'
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        if: steps.v.outputs.exists == 'false'
+        with:
+          tag_name: v${{ steps.v.outputs.version }}
+          name: AI 대화 기록 정리 비서 ${{ steps.v.outputs.version }}
+          body_path: notes.md
+          target_commitish: ${{ github.sha }}
+          files: dist/*

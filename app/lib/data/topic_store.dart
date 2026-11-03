@@ -12,9 +12,12 @@ class TopicStore {
   final Database db;
   TopicStore(this.db);
 
+  /// 샘플 대화를 숨길 때 주제별 개수에서도 뺌.
+  bool hideSamples = false;
+
   List<Topic> all() {
     final rows = db.select('''SELECT t.id, t.name, t.parent_id,
-        (SELECT COUNT(*) FROM conversation_topics ct WHERE ct.topic_id=t.id AND ct.origin!='removed') AS n
+        (SELECT COUNT(*) FROM conversation_topics ct JOIN conversations c ON c.id=ct.conv_id WHERE ct.topic_id=t.id AND ct.origin!='removed' AND (${hideSamples ? 'c.sample=0' : '1=1'})) AS n
         FROM topics t ORDER BY t.name''');
     return rows
         .map((r) => Topic(id: r['id'] as int, name: r['name'] as String, parentId: r['parent_id'] as int?, count: r['n'] as int))

@@ -178,18 +178,20 @@ void main() {
     expect(KoreanTokenizer.termQuery('유튜브'), '{t b} : "유튜 튜브"');
   });
 
-  test('데이터 버전 변환: 1단계 DB를 열면 최신으로 바뀌고 백업이 남는다', () async {
+  test('데이터 버전 변환: 이전 버전 DB를 열면 최신으로 바뀌고 백업이 남는다', () async {
     final dir = await Directory.systemTemp.createTemp('mig');
     final path = '${dir.path}/data.db';
     final d = AppDatabase.openFile(path);
     expect(d.version, AppDatabase.currentVersion);
-    d.db.execute("UPDATE meta SET value='1' WHERE key='schema_version'");
-    d.db.execute('DROP TABLE topic_digest');
+    // 1.0.0(자료 버전 2) 상태로 되돌림
+    d.db.execute("UPDATE meta SET value='2' WHERE key='schema_version'");
+    d.db.execute('DROP INDEX idx_conv_sample');
+    d.db.execute('ALTER TABLE conversations DROP COLUMN sample');
     d.close();
     final d2 = AppDatabase.openFile(path);
     expect(d2.version, AppDatabase.currentVersion);
     d2.close();
-    expect(dir.listSync().any((f) => f.path.contains('.bak-v1-')), isTrue);
+    expect(dir.listSync().any((f) => f.path.contains('.bak-v2-')), isTrue);
   });
 
   test('비밀번호 암호화 왕복', () async {
