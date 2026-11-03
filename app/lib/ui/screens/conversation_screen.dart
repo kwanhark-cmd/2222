@@ -82,6 +82,19 @@ class _ConversationScreenState extends State<ConversationScreen> {
     if (mounted) showNotice(context, '메모를 남겼어요.');
   }
 
+  /// 말로 남기는 메모: 말한 그대로 이 대화에 붙습니다.
+  Future<void> _voiceNote() async {
+    showNotice(context, '듣고 있어요. 떠오른 생각을 말씀하세요.', kind: StatusKind.progress);
+    await c.voice.listen(
+      onResult: (text, done) {
+        if (done && text.trim().isNotEmpty && mounted) _addNote(text: text.trim(), byVoice: true);
+      },
+      onError: (msg) {
+        if (mounted) showNotice(context, msg, kind: StatusKind.check);
+      },
+    );
+  }
+
   Future<void> _changeTopic({String? name}) async {
     final s = c.session!;
     String? target = name;
@@ -333,6 +346,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
                 onPressed: () => ctl.voice.stopSpeaking(),
               ),
               BigButton(label: '메모 남기기', image: AppIcons3d.memo, expand: false, kind: ButtonKind.accent, onPressed: _addNote),
+              if (ctl.voice.canListen)
+                BigButton(label: '말로 메모', image: AppIcons3d.mic, expand: false, kind: ButtonKind.accent, onPressed: _voiceNote),
               BigButton(label: '내보내기', icon: Icons.ios_share_rounded, expand: false, kind: ButtonKind.info, onPressed: () => _export(conv)),
               if (conv.link != null)
                 BigButton(

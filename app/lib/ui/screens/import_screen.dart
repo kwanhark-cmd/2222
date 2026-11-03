@@ -186,6 +186,7 @@ class _ResultCard extends StatelessWidget {
             Mascot(ok ? MascotMood.celebrate : (failed ? MascotMood.warning : MascotMood.done), size: 72),
             const SizedBox(width: AppSize.gapM),
             Expanded(child: Text(job.message ?? '', style: tt.titleMedium)),
+            if (ok) const CheckPop(),
           ],
         ),
         if (s != null) ...[

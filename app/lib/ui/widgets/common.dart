@@ -513,3 +513,24 @@ class _WiggleState extends State<Wiggle> with SingleTickerProviderStateMixin {
     child: widget.child,
   );
 }
+
+/// 완료 체크가 톡 튀어나오는 효과(움직임 줄이기면 바로 표시).
+class CheckPop extends StatelessWidget {
+  final double size;
+  const CheckPop({super.key, this.size = 48});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
+    final d = theme.motion(context, AppMotion.slow);
+    final icon = Icon(Icons.check_circle_rounded, color: theme.palette.success, size: size, semanticLabel: '완료');
+    if (d == Duration.zero) return icon;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: d,
+      curve: AppMotion.bounce,
+      builder: (_, v, child) => Transform.scale(scale: v, child: child),
+      child: icon,
+    );
+  }
+}
