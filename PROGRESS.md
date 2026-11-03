@@ -10,8 +10,9 @@
 
 ## 자동 빌드(GitHub Actions)
 - 1.1.0 1단계 커밋: 검사·리눅스·안드로이드·윈도우·맥 모두 성공
-- 2~4단계 커밋: 확인 중
-- Releases(v1.1.0): main 병합 뒤 확인
+- 2~4단계 커밋: 검사(테스트 94개)·리눅스·안드로이드·윈도우·맥 모두 성공
+- Releases v1.1.0 배포 확인: https://github.com/kwanhark-cmd/2222/releases/tag/v1.1.0
+  (android.apk 81MB, windows.zip 22MB, macos.zip 31MB, linux.zip 19MB, 한국어 변경 내역)
 
 ## 하던 것
 - 없음
