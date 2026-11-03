@@ -9,8 +9,9 @@
 - 문서: README, PLAN, DECISIONS, BLOCKERS, docs/보고(1~3단계, 최종보고), docs/검증(1~3단계, 누락점검)
 
 ## 자동 빌드(GitHub Actions)
-- 검사(포맷·린트·테스트) + 리눅스: 확인 중
-- 안드로이드 / 윈도우 / 맥: 확인 중
+- 첫 실행(https://github.com/kwanhark-cmd/2222/actions/runs/41570211193) 모두 성공
+  - 검사(포맷·린트·테스트 58개) + 리눅스: 성공
+  - 안드로이드 APK(약 39MB) / 윈도우(약 22MB) / 맥(약 30MB): 성공, Artifacts에서 내려받기 가능
 
 ## 하던 것
 - 없음
