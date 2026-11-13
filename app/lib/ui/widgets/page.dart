@@ -110,6 +110,11 @@ class _NavButton extends StatelessWidget {
           child: InkWell(
             borderRadius: BorderRadius.circular(AppSize.radiusSmall),
             onTap: onTap,
+            // 누르거나 키보드로 고르면 또렷하게 어두워져요(글자 대비는 더 커짐)
+            highlightColor: Colors.black.withValues(alpha: 0.3),
+            splashColor: Colors.black.withValues(alpha: 0.2),
+            focusColor: Colors.black.withValues(alpha: 0.35),
+            hoverColor: Colors.black.withValues(alpha: 0.15),
             child: SizedBox(
               width: 60,
               height: 52,
@@ -119,7 +124,7 @@ class _NavButton extends StatelessWidget {
                   Icon(icon, color: p.onPrimary, size: 24),
                   Text(
                     label,
-                    style: TextStyle(color: p.onPrimary, fontSize: 12, fontWeight: FontWeight.w700),
+                    style: TextStyle(color: p.onPrimary, fontSize: 15, fontWeight: FontWeight.w800),
                     textScaler: TextScaler.noScaling,
                   ),
                 ],

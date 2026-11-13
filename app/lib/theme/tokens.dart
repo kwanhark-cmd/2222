@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 
 /// 크기·간격·둥글기
 class AppSize {
-  static const buttonHeight = 56.0;
-  static const minTouch = 48.0;
+  static const buttonHeight = 56.0; // 모든 버튼 최소 높이(52 이상 규칙)
+  static const minTouch = 48.0; // 누를 수 있는 곳 최소 크기
+  static const outlineWidth = 2.0; // 테두리 버튼 테두리 두께(고대비는 3)
+  static const focusRing = 3.0; // 키보드로 고른 버튼 둘레 고리 두께
   static const radius = 16.0;
   static const radiusCard = 20.0;
   static const radiusSmall = 12.0;
@@ -24,12 +26,12 @@ class AppSize {
 
   // 글씨 기본 크기(글씨 크기 설정으로 배율이 곱해짐)
   static const textBody = 17.0;
-  static const textSmall = 15.0;
+  static const textSmall = 16.0; // 설명 글자도 16 이상
   static const textTitle = 21.0;
   static const textHeadline = 26.0;
   static const textDisplay = 34.0; // 큰 숫자(토스처럼 크게)
   static const searchHeight = 68.0; // 홈 검색창 높이
-  static const textButton = 18.0;
+  static const textButton = 18.0; // 버튼 글자(17 이상, 굵게)
 }
 
 /// 움직임 시간
@@ -104,58 +106,58 @@ class AppPalette {
 
   static const light = AppPalette(
     brightness: Brightness.light,
-    primary: Color(0xFF2F4AA8),
+    primary: Color(0xFF2A4299),
     onPrimary: Color(0xFFFFFFFF),
-    primaryText: Color(0xFF2F4AA8),
-    accent: Color(0xFFB4400F),
+    primaryText: Color(0xFF2A4299),
+    accent: Color(0xFF8A2F08),
     onAccent: Color(0xFFFFFFFF),
     background: Color(0xFFECF0F7),
     surface: Color(0xFFFFFFFF),
     surfaceAlt: Color(0xFFE2E8F4),
     text: Color(0xFF1A1D24),
-    textMuted: Color(0xFF474E60),
-    border: Color(0xFFC3CADB),
-    success: Color(0xFF1E7B3A),
+    textMuted: Color(0xFF3A4152),
+    border: Color(0xFF79829A),
+    success: Color(0xFF145A26),
     onSuccess: Color(0xFFFFFFFF),
-    info: Color(0xFF1F5FBF),
+    info: Color(0xFF194C99),
     onInfo: Color(0xFFFFFFFF),
     warning: Color(0xFFF2C230),
     onWarning: Color(0xFF1A1D24),
-    danger: Color(0xFFC62828),
+    danger: Color(0xFF9C1A1A),
     onDanger: Color(0xFFFFFFFF),
     shadow: Color(0x33233066),
     highlight: Color(0xFFFFE58A),
-    claude: Color(0xFFC2410C),
-    chatgpt: Color(0xFF0B6E55),
-    gemini: Color(0xFF2B57C9),
+    claude: Color(0xFF9A3309),
+    chatgpt: Color(0xFF0A5C47),
+    gemini: Color(0xFF2346A6),
   );
 
   static const dark = AppPalette(
     brightness: Brightness.dark,
-    primary: Color(0xFF4A63D1),
+    primary: Color(0xFF2C44AE),
     onPrimary: Color(0xFFFFFFFF),
-    primaryText: Color(0xFFA9B9FF),
-    accent: Color(0xFFB4400F),
+    primaryText: Color(0xFFB5C3FF),
+    accent: Color(0xFF8A2F08),
     onAccent: Color(0xFFFFFFFF),
     background: Color(0xFF0E1116),
     surface: Color(0xFF1F242D),
     surfaceAlt: Color(0xFF2C323E),
     text: Color(0xFFF1F3F8),
-    textMuted: Color(0xFFB9C0D0),
-    border: Color(0xFF444B5C),
-    success: Color(0xFF1E7B3A),
+    textMuted: Color(0xFFC3C9D7),
+    border: Color(0xFF79819A),
+    success: Color(0xFF145A26),
     onSuccess: Color(0xFFFFFFFF),
-    info: Color(0xFF1F5FBF),
+    info: Color(0xFF194C99),
     onInfo: Color(0xFFFFFFFF),
     warning: Color(0xFFF2C230),
     onWarning: Color(0xFF1A1D24),
-    danger: Color(0xFFC62828),
+    danger: Color(0xFF9C1A1A),
     onDanger: Color(0xFFFFFFFF),
     shadow: Color(0x99000000),
-    highlight: Color(0xFF6B5500),
-    claude: Color(0xFFC2410C),
-    chatgpt: Color(0xFF0B6E55),
-    gemini: Color(0xFF2B57C9),
+    highlight: Color(0xFF574500),
+    claude: Color(0xFF9A3309),
+    chatgpt: Color(0xFF0A5C47),
+    gemini: Color(0xFF2346A6),
   );
 
   static const highContrastLight = AppPalette(
@@ -189,10 +191,10 @@ class AppPalette {
 
   static const highContrastDark = AppPalette(
     brightness: Brightness.dark,
-    primary: Color(0xFF2846D8),
+    primary: Color(0xFF1F3BBF),
     onPrimary: Color(0xFFFFFFFF),
     primaryText: Color(0xFFFFE600),
-    accent: Color(0xFF9E3300),
+    accent: Color(0xFF8A2A00),
     onAccent: Color(0xFFFFFFFF),
     background: Color(0xFF000000),
     surface: Color(0xFF000000),
@@ -209,7 +211,7 @@ class AppPalette {
     danger: Color(0xFF9E0000),
     onDanger: Color(0xFFFFFFFF),
     shadow: Color(0x00000000),
-    highlight: Color(0xFF7A6A00),
+    highlight: Color(0xFF574800),
     claude: Color(0xFF6E3214),
     chatgpt: Color(0xFF064A39),
     gemini: Color(0xFF173C9E),
@@ -248,8 +250,38 @@ class AppPalette {
     borderWidth: borderWidth,
   );
 
-  /// (글자색, 배경색, 이름) — 대비 검사용
+  /// 테두리 버튼의 테두리 두께(보통 2, 고대비 3).
+  double get outlineWidth => borderWidth > 1 ? 3 : AppSize.outlineWidth;
+
+  /// 키보드로 고른 버튼 둘레 고리 색(배경과 대비 7:1 이상인 본문색).
+  Color get focusRing => text;
+
+  /// 버튼 종류별 색(평소·눌렀을 때). 모든 버튼 글자는 배경과 7:1 이상.
+  ButtonColors button(ButtonKind kind) {
+    if (kind == ButtonKind.quiet) {
+      // 테두리 버튼: 카드색 바탕 + 주요색 글자·두꺼운 테두리. 누르면 주요색으로 꽉 차요.
+      return ButtonColors(bg: surface, fg: primaryText, pressedBg: primary, pressedFg: onPrimary, border: primaryText);
+    }
+    final (bg, fg) = switch (kind) {
+      ButtonKind.primary => (primary, onPrimary),
+      ButtonKind.accent => (accent, onAccent),
+      ButtonKind.danger => (danger, onDanger),
+      ButtonKind.success => (success, onSuccess),
+      ButtonKind.info => (info, onInfo),
+      ButtonKind.quiet => (surface, primaryText),
+    };
+    return ButtonColors(bg: bg, fg: fg, pressedBg: ButtonColors.pressedFill(bg, fg), pressedFg: fg);
+  }
+
+  /// (글자색, 배경색, 이름) — 대비 검사용(7:1 이상)
   List<(Color, Color, String)> get contrastPairs => [
+    for (final k in ButtonKind.values) ...[
+      (button(k).fg, button(k).bg, '버튼 ${k.name}'),
+      (button(k).fg, ButtonColors.raisedTop(button(k).bg), '버튼 ${k.name} 윗부분'),
+      (button(k).pressedFg, button(k).pressedBg, '버튼 ${k.name} 누름'),
+    ],
+    (textMuted, surfaceAlt, '흐린글자/보조카드'),
+    (primaryText, surfaceAlt, '주요색 글자/보조카드'),
     (text, background, '본문/배경'),
     (text, surface, '본문/카드'),
     (text, surfaceAlt, '본문/보조카드'),
@@ -268,6 +300,27 @@ class AppPalette {
     (const Color(0xFFFFFFFF), gemini, '제미나이 배지'),
     (text, highlight, '검색어 강조'),
   ];
+}
+
+/// 버튼 종류: 주요(파랑)·강조(주황)·위험(빨강)·완료(초록)·안내(파랑)·테두리(quiet).
+enum ButtonKind { primary, accent, danger, success, info, quiet }
+
+/// 버튼 한 종류의 색.
+@immutable
+class ButtonColors {
+  final Color bg;
+  final Color fg;
+  final Color pressedBg;
+  final Color pressedFg;
+  final Color? border;
+  const ButtonColors({required this.bg, required this.fg, required this.pressedBg, required this.pressedFg, this.border});
+
+  /// 눌렀을 때 배경: 글자색에서 더 멀어지는 쪽으로(대비가 오히려 커짐).
+  static Color pressedFill(Color bg, Color fg) =>
+      fg.computeLuminance() > bg.computeLuminance() ? Color.lerp(bg, Colors.black, 0.28)! : Color.lerp(bg, Colors.white, 0.4)!;
+
+  /// 입체 버튼 윗부분(살짝 밝게). 글자 대비가 떨어지지 않을 만큼만.
+  static Color raisedTop(Color base) => Color.lerp(base, Colors.white, 0.05)!;
 }
 
 /// 상태 4가지: 초록=완료, 파랑=진행 중, 노랑=확인 필요, 빨강=문제
@@ -369,17 +422,17 @@ class TopicColors {
   static Color of(int topicId) => all[topicId.abs() % all.length];
 }
 
-/// 사용자가 고르는 색 테마(주요색만 바뀜, 글자 대비는 모두 4.5:1 이상).
+/// 사용자가 고르는 색 테마(주요색만 바뀜, 글자 대비는 모두 7:1 이상).
 class ColorThemes {
   static const names = {'blue': '파랑', 'green': '초록', 'purple': '보라', 'teal': '청록', 'rose': '장미'};
 
   /// (밝게 버튼색, 어둡게 버튼색, 어둡게 글자색)
   static const _colors = {
-    'blue': (Color(0xFF2F4AA8), Color(0xFF4A63D1), Color(0xFFA9B9FF)),
-    'green': (Color(0xFF1B6E3A), Color(0xFF237A45), Color(0xFF8FD9A8)),
-    'purple': (Color(0xFF6A3DB8), Color(0xFF7448C4), Color(0xFFCDB5FF)),
-    'teal': (Color(0xFF0F6E78), Color(0xFF137A85), Color(0xFF8ADBE3)),
-    'rose': (Color(0xFFA8325E), Color(0xFFB13A67), Color(0xFFFFB0CB)),
+    'blue': (Color(0xFF2A4299), Color(0xFF2C44AE), Color(0xFFB5C3FF)),
+    'green': (Color(0xFF145529), Color(0xFF145529), Color(0xFF8FD9A8)),
+    'purple': (Color(0xFF5A2FA0), Color(0xFF6234AD), Color(0xFFCDB5FF)),
+    'teal': (Color(0xFF09515A), Color(0xFF09515A), Color(0xFF8ADBE3)),
+    'rose': (Color(0xFF82224A), Color(0xFF82224A), Color(0xFFFFB0CB)),
   };
 
   static Color sample(String name) => (_colors[name] ?? _colors['blue']!).$1;

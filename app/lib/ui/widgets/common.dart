@@ -9,9 +9,12 @@ import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
 import 'pressable.dart';
 
-enum ButtonKind { primary, accent, danger, success, info, quiet }
+export '../../theme/tokens.dart' show ButtonKind;
 
-/// 큰 색 버튼(최소 높이 56). 회색 글자 버튼은 쓰지 않습니다.
+/// 큰 버튼(최소 높이 56, 글자 18 굵게). 색은 [AppPalette.button]에서 한곳에 정해요.
+/// - 꽉 찬 버튼: 글자와 배경 대비 7:1 이상(눌렀을 때도)
+/// - [ButtonKind.quiet]: 2px 테두리 버튼, 누르면 주요색으로 꽉 차요
+/// - [ButtonKind.danger]: 지우기 같은 위험한 일은 빨강
 class BigButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
@@ -33,41 +36,40 @@ class BigButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = AppTheme.of(context).palette;
-    final (bg, fg) = switch (kind) {
-      ButtonKind.primary => (p.primary, p.onPrimary),
-      ButtonKind.accent => (p.accent, p.onAccent),
-      ButtonKind.danger => (p.danger, p.onDanger),
-      ButtonKind.success => (p.success, p.onSuccess),
-      ButtonKind.info => (p.info, p.onInfo),
-      ButtonKind.quiet => (p.surfaceAlt, p.primaryText == p.primary ? p.primary : p.text),
-    };
-    final content = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-      child: Row(
-        mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (image != null) ...[Image.asset(image!, width: 30, height: 30), const SizedBox(width: 10)],
-          if (icon != null && image == null) ...[Icon(icon, color: fg, size: AppSize.iconButton), const SizedBox(width: 10)],
-          Flexible(
-            child: Text(
-              label,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.labelLarge!.copyWith(color: fg),
+    final colors = p.button(kind);
+    final outlined = colors.border != null;
+    Widget content(bool pressed) {
+      final fg = pressed ? colors.pressedFg : colors.fg;
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        child: Row(
+          mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (image != null) ...[Image.asset(image!, width: 30, height: 30), const SizedBox(width: 10)],
+            if (icon != null && image == null) ...[Icon(icon, color: fg, size: AppSize.iconButton), const SizedBox(width: 10)],
+            Flexible(
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.labelLarge!.copyWith(color: fg),
+              ),
             ),
-          ),
-        ],
-      ),
-    );
+          ],
+        ),
+      );
+    }
+
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: AppSize.buttonHeight, minWidth: AppSize.minTouch),
       child: Pressable(
         onTap: onPressed,
-        color: bg,
-        raised: kind != ButtonKind.quiet,
-        border: kind == ButtonKind.quiet ? BorderSide(color: p.border, width: p.borderWidth) : null,
+        color: colors.bg,
+        pressedColor: colors.pressedBg,
+        raised: !outlined,
+        border: outlined ? BorderSide(color: onPressed == null ? p.border : colors.border!, width: p.outlineWidth) : null,
         semanticLabel: label,
-        child: Center(widthFactor: expand ? null : 1, child: content),
+        builder: (context, pressed) => Center(widthFactor: expand ? null : 1, child: content(pressed)),
       ),
     );
   }

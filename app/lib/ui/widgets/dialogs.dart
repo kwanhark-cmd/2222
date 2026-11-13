@@ -181,7 +181,13 @@ Future<T?> pickOne<T>(BuildContext? context, {required String title, String? mes
       title: title,
       body: message == null ? const SizedBox.shrink() : Text(message),
       buttons: [
-        for (final (v, label) in options) BigButton(label: label, onPressed: () => Navigator.pop(ctx, v), kind: ButtonKind.primary),
+        for (final (v, label) in options)
+          BigButton(
+            label: label,
+            onPressed: () => Navigator.pop(ctx, v),
+            // 지우기 같은 위험한 항목은 언제나 빨강
+            kind: v == 'delete' || label.contains('지우기') ? ButtonKind.danger : ButtonKind.primary,
+          ),
         BigButton(label: '그만두기', onPressed: () => Navigator.pop(ctx), kind: ButtonKind.quiet),
       ],
     ),
