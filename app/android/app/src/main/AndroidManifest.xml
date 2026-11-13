@@ -3,11 +3,12 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- 음성 검색·명령(거부해도 앱은 동작) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-    <!-- 업데이트: 사용자가 "업데이트"를 눌렀을 때 새 APK 설치 화면 열기 -->
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+    <!-- 새 버전은 앱 안에서 설치하지 않아요(백업 파일 → 기존 앱 지우기 → 새로 설치 → 되살리기).
+         allowBackup=false: 암호화 열쇠 없이 자료만 자동 복원되어 대화를 못 읽게 되는 일을 막아요. -->
     <application
         android:label="AI 대화 정리 비서"
         android:name="${applicationName}"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"

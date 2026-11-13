@@ -2,8 +2,9 @@ import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
 
-/// 자료(설정·대화·주제·별표·태그)를 두는 곳. 앱 파일과 떨어진 "사용자 폴더"라서
-/// 새 버전으로 앱 파일을 덮어써도 그대로 남습니다. 열쇠(암호화 키·AI 열쇠)는 운영체제 보안 저장소에 둡니다.
+/// 자료(설정·대화·주제·별표·태그)를 두는 곳. 컴퓨터에서는 앱 파일과 떨어진 "사용자 폴더"라서
+/// 새 버전으로 앱 파일을 바꿔도 그대로 남습니다. 열쇠(암호화 키·AI 열쇠)는 운영체제 보안 저장소에 둡니다.
+/// 안드로이드는 앱을 지우면 이 폴더도 지워지므로, 새 버전으로 바꿀 때는 먼저 백업 파일을 앱 밖에 저장합니다.
 ///
 /// - 맥: ~/Library/Application Support/com.aichatorganizer.aiChatOrganizer/ai_chat_organizer
 /// - 윈도우: %APPDATA%\com.aichatorganizer\ai_chat_organizer\ai_chat_organizer

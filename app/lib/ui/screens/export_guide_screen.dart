@@ -64,9 +64,13 @@ class ExportGuide {
   ];
 }
 
+/// 바깥 브라우저로 주소 열기. 시험에서는 가짜로 바꿔 끼웁니다.
+@visibleForTesting
+Future<bool> Function(Uri url) linkLauncher = (url) => launchUrl(url, mode: LaunchMode.externalApplication);
+
 Future<void> openLink(BuildContext context, String url) async {
   try {
-    final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    final ok = await linkLauncher(Uri.parse(url));
     if (!ok && context.mounted) showNotice(context, '바로가기를 열 수 없어요. 인터넷 브라우저에서 직접 열어 주세요.', kind: StatusKind.check);
   } catch (e) {
     AppLog.warn('링크 열기 실패', {'error': e.runtimeType.toString()});

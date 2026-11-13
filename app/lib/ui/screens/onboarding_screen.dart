@@ -5,11 +5,12 @@ import '../../services/app_controller.dart';
 import '../../services/settings.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
+import '../widgets/backup_actions.dart';
 import '../widgets/common.dart';
 import '../widgets/dialogs.dart';
 import 'export_guide_screen.dart';
 
-/// 첫 실행 안내: (이름) → 글씨 크기 → 권한 → 내보내기 받는 법 → 샘플로 체험
+/// 첫 실행 안내: (이름) → 글씨 크기 → 권한 → 내보내기 받는 법 → 샘플로 체험(또는 백업에서 되살리기)
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
   @override
@@ -169,6 +170,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         maxLength: 4,
         decoration: const InputDecoration(hintText: '비워 두어도 돼요'),
       ),
+      const SizedBox(height: AppSize.gapS),
+      Text('새 버전으로 바꾸며 만든 백업 파일이 있다면, 마지막 단계에서 "백업에서 되살리기"를 누르세요.', style: tt.bodySmall),
     ],
   );
 
@@ -274,6 +277,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         icon: Icons.play_arrow_rounded,
         kind: ButtonKind.primary,
         onPressed: working ? null : () => finish(withSamples: false),
+      ),
+      const SizedBox(height: AppSize.gapM),
+      BigButton(
+        label: '백업에서 되살리기',
+        icon: Icons.restore_rounded,
+        kind: ButtonKind.primary,
+        onPressed: working ? null : () => restoreBackupFile(context, context.read<AppController>()),
       ),
     ],
   );

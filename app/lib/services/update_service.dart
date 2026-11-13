@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:archive/archive_io.dart';
-import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
 import '../core/app_info.dart';
@@ -32,7 +31,7 @@ class UpdateError implements Exception {
     UpdateErrorKind.noFileForDevice => '이 기기용 새 버전 파일이 아직 없어요. 잠시 뒤 다시 확인해 주세요.',
     UpdateErrorKind.download => '새 버전을 내려받지 못했어요. 인터넷을 확인하고 다시 해 주세요.',
     UpdateErrorKind.install => '설치를 시작하지 못했어요. 설정 > 문제 신고로 알려 주세요.',
-    UpdateErrorKind.unsupported => '이 기기에서는 앱 안에서 업데이트할 수 없어요. 내려받기 화면에서 새 파일을 받아 덮어써 주세요.',
+    UpdateErrorKind.unsupported => '이 기기에서는 앱 안에서 바로 설치할 수 없어요. 내려받기 화면에서 새 파일을 받아 안내 순서대로 설치해 주세요.',
   };
   @override
   String toString() => 'UpdateError($kind)';
@@ -56,6 +55,12 @@ int compareVersions(String a, String b) {
 }
 
 /// 업데이트 확인·내려받기·설치. 자동으로 내려받지 않고 사용자가 "업데이트"를 눌러야 시작합니다.
+///
+/// 앱은 서명 키 없이 배포합니다(주인의 결정). 그래서
+/// - 안드로이드: 새 버전을 기존 앱 위에 설치할 수 없어요. 앱 안에서 설치를 시도하지 않고,
+///   "백업 파일(앱 밖) → 새 파일 받기 → 기존 앱 지우기 → 설치 → 백업에서 되살리기" 순서를 안내합니다.
+/// - 맥: 앱이 샌드박스 안에서 돌아 스스로 .app을 바꿀 수 없어요. 내려받기 화면을 열고 바꿔 넣는 법을 안내합니다.
+/// - 윈도우·리눅스: 앱을 닫고 새 파일로 바꾼 뒤 다시 엽니다(자료는 사용자 폴더에 있어 그대로).
 class UpdateService {
   static const repo = 'kwanhark-cmd/2222';
   final http.Client client;
@@ -156,23 +161,15 @@ class UpdateService {
     }
   }
 
-  static const _channel = MethodChannel('aico/update');
+  /// 앱 안에서 바로 바꿔 설치할 수 있는 기기인가(윈도우·리눅스만).
+  static bool canInstallInApp(String platform) => platform == 'windows' || platform == 'linux';
 
-  /// 설치 시작. 컴퓨터는 앱을 닫고 새 파일로 덮어쓴 뒤 다시 엽니다(설정·대화는 사용자 폴더에 있어 그대로).
+  /// 설치 시작(윈도우·리눅스만). 앱을 닫고 새 파일로 바꾼 뒤 다시 엽니다(설정·대화는 사용자 폴더에 있어 그대로).
+  /// 안드로이드·맥은 여기서 설치하지 않습니다(내려받기 화면 안내).
   Future<void> install(File downloaded) async {
+    if (!canInstallInApp(platform)) throw const UpdateError(UpdateErrorKind.unsupported);
     try {
-      switch (platform) {
-        case 'android':
-          await _channel.invokeMethod('installApk', downloaded.path);
-        case 'windows':
-          await _installDesktop(downloaded, windows: true);
-        case 'macos':
-          await _installMac(downloaded);
-        case 'linux':
-          await _installDesktop(downloaded, windows: false);
-        default:
-          throw const UpdateError(UpdateErrorKind.unsupported);
-      }
+      await _installDesktop(downloaded, windows: platform == 'windows');
     } on UpdateError {
       rethrow;
     } catch (e, st) {
@@ -213,32 +210,6 @@ nohup "${appDir.path}/$exeName" >/dev/null 2>&1 &
 ''');
       await Process.start('/bin/bash', [sh.path], mode: ProcessStartMode.detached);
     }
-    exit(0);
-  }
-
-  /// 맥: .app을 새 것으로 바꾸고 다시 엽니다.
-  Future<void> _installMac(File zip) async {
-    // .../ai_chat_organizer.app/Contents/MacOS/ai_chat_organizer
-    final appBundle = File(Platform.resolvedExecutable).parent.parent.parent;
-    if (!appBundle.path.endsWith('.app')) throw const UpdateError(UpdateErrorKind.unsupported);
-    final staging = Directory('${zip.parent.path}/new_version');
-    if (staging.existsSync()) staging.deleteSync(recursive: true);
-    staging.createSync(recursive: true);
-    final r = await Process.run('ditto', ['-x', '-k', zip.path, staging.path]);
-    if (r.exitCode != 0) throw const UpdateError(UpdateErrorKind.install);
-    final newApp = staging.listSync().whereType<Directory>().firstWhere(
-      (d) => d.path.endsWith('.app'),
-      orElse: () => throw const UpdateError(UpdateErrorKind.install),
-    );
-    final sh = File('${zip.parent.path}/update.sh');
-    sh.writeAsStringSync('''#!/bin/bash
-while kill -0 $pid 2>/dev/null; do sleep 1; done
-rm -rf "${appBundle.path}"
-ditto "${newApp.path}" "${appBundle.path}"
-xattr -dr com.apple.quarantine "${appBundle.path}" 2>/dev/null
-open "${appBundle.path}"
-''');
-    await Process.start('/bin/bash', [sh.path], mode: ProcessStartMode.detached);
     exit(0);
   }
 }

@@ -5,14 +5,13 @@ import '../../classify/ai_provider.dart';
 import '../../core/app_info.dart';
 import '../../models/models.dart';
 import '../../services/app_controller.dart';
-import '../../services/backup_service.dart';
 import '../../services/settings.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
 import '../widgets/common.dart';
 import '../widgets/conversation_tile.dart';
 import '../widgets/dialogs.dart';
-import '../widgets/file_actions.dart';
+import '../widgets/backup_actions.dart';
 import '../widgets/page.dart';
 import '../widgets/status_strip.dart';
 import '../widgets/update_card.dart';
@@ -382,9 +381,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: '자료 관리',
             image: AppIcons3d.lock,
             children: [
-              BigButton(label: '백업 파일 만들기', icon: Icons.save_alt_rounded, kind: ButtonKind.success, onPressed: () => _backup(context, c)),
+              BigButton(
+                label: '백업 파일 만들기',
+                icon: Icons.save_alt_rounded,
+                kind: ButtonKind.success,
+                onPressed: () => makeBackupFile(context, c),
+              ),
               const SizedBox(height: AppSize.gapS),
-              BigButton(label: '백업에서 되살리기', icon: Icons.restore_rounded, kind: ButtonKind.primary, onPressed: () => _restore(context, c)),
+              BigButton(
+                label: '백업에서 되살리기',
+                icon: Icons.restore_rounded,
+                kind: ButtonKind.primary,
+                onPressed: () => restoreBackupFile(context, c),
+              ),
               const SizedBox(height: AppSize.gapS),
               BigButton(
                 label: '다른 사용자로 바꾸기',
@@ -491,49 +500,5 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final w = (usd * 1400).round();
     if (w < 10 && usd > 0) return '10원 미만';
     return '약 ${w.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',')}원';
-  }
-
-  Future<void> _backup(BuildContext context, AppController c) async {
-    final pw = await askText(
-      context,
-      title: '백업 비밀번호',
-      message: '백업 파일을 잠글 비밀번호예요. 잊으면 되살릴 수 없어요(6자 이상).',
-      obscure: true,
-      confirmLabel: '다음',
-    );
-    if (pw == null || !context.mounted) return;
-    if (pw.length < 6) {
-      showNotice(context, '비밀번호는 6자 이상이어야 해요.', kind: StatusKind.check);
-      return;
-    }
-    final pw2 = await askText(context, title: '한 번 더 입력', obscure: true, confirmLabel: '백업 만들기');
-    if (pw2 != pw || !context.mounted) {
-      if (context.mounted) showNotice(context, '두 비밀번호가 달라요.', kind: StatusKind.check);
-      return;
-    }
-    showNotice(context, '백업 파일을 만드는 중이에요…', kind: StatusKind.progress);
-    final bytes = await c.makeBackup(pw);
-    final now = DateTime.now();
-    if (!context.mounted) return;
-    await saveBytes(
-      context,
-      '대화기록백업_${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}.${BackupService.fileExtension}',
-      bytes,
-    );
-  }
-
-  Future<void> _restore(BuildContext context, AppController c) async {
-    final f = await pickOneFile(context);
-    if (f == null || !context.mounted) return;
-    final pw = await askText(context, title: '백업 비밀번호', obscure: true, confirmLabel: '다음');
-    if (pw == null || !context.mounted) return;
-    final ok = await confirmTwice(context, title: '백업에서 되살릴까요?', message: '지금 앱에 있는 자료가 백업 내용으로 바뀌어요.', confirmLabel: '되살릴게요');
-    if (!ok || !context.mounted) return;
-    try {
-      await c.restoreBackup(f.$2, pw);
-      if (context.mounted) showNotice(context, '되살렸어요!');
-    } catch (_) {
-      if (context.mounted) showNotice(context, '되살리지 못했어요. 비밀번호나 파일을 확인해 주세요.', kind: StatusKind.problem);
-    }
   }
 }
